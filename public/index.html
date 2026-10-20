@@ -1083,7 +1083,7 @@ const SEV={high:["สำคัญ","c-bad","#b0281d"],medium:["ควรแก�
 let sampleFn=null, imgCap=null, aiCtl=null, aiTimer=null; S.ai=null; S.aiSel=-1;
 const aiCv=document.createElement("canvas"); aiCv.id="aiCv"; const aiCvA=document.createElement("canvas");
 let apiBase="", apiToken="";
-try { $("apiUrl").value=localStorage.getItem("bcl-api-url")||(!location.hostname.endsWith("github.io")&&location.protocol!=="file:"?location.origin:""); } catch(_) {}
+try { $("apiUrl").value=localStorage.getItem("bcl-api-url")||(!location.hostname.endsWith("github.io")&&location.protocol!=="file:"?location.origin:"https://bcl-artwork-qc.vercel.app"); } catch(_) {}
 async function initAI(){
   sampleFn=null; imgCap=null; aiAvail("กำลังเชื่อมต่อเซิร์ฟเวอร์ OpenAI…");
   try {

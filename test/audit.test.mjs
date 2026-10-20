@@ -45,5 +45,6 @@ test('frontend scripts parse and contain no embedded credentials or stale copy h
   const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
   for(const [,script] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) if(script.trim()) new vm.Script(script);
   assert(html.includes('id="apiAccess"'));assert(html.includes('function openaiAudit'));
+  assert(html.includes('location.origin:"https://bcl-artwork-qc.vercel.app"'));
   assert(!html.includes('$("envCopy").onclick'));assert(!html.includes('synthetic-key'));
 });

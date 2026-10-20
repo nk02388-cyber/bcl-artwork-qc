@@ -6,6 +6,10 @@
 
 หน้าเว็บ GitHub Pages ใช้เทียบภาพ/ข้อความและ Checklist ได้ทันที ส่วน AI ต้องตั้งเซิร์ฟเวอร์ก่อน
 
+Backend ติดตั้งแล้วที่ `https://bcl-artwork-qc.vercel.app` และหน้า GitHub Pages ใช้ URL นี้เป็นค่าเริ่มต้น
+ผู้ดูแลตั้ง `OPENAI_API_KEY` ที่ [Vercel Environment Variables](https://vercel.com/pk-store/bcl-artwork-qc/settings/environment-variables) สำหรับ Production แล้ว Redeploy เพื่อเปิดใช้ AI
+`APP_ACCESS_TOKEN` และ `ALLOWED_ORIGIN` ตั้งไว้บนเซิร์ฟเวอร์แล้ว รหัสเข้าใช้ส่งให้เจ้าของแยกจาก repository
+
 1. Import repository นี้เข้า Vercel (Framework: Other) โดยใช้ `vercel.json` ที่ให้ไว้
 2. ตั้ง Environment Variables ที่ Vercel:
    - `OPENAI_API_KEY`: คีย์ OpenAI ของบัญชีที่เปิดใช้งาน API billing
