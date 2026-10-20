@@ -1,0 +1,1341 @@
+<!doctype html><html lang="th"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<title>ตรวจ Artwork BCL</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+(function(){
+  var seen={};
+  function show(msg){
+    try{
+      msg=String(msg||"ข้อผิดพลาดไม่ทราบสาเหตุ").slice(0,240);
+      if(seen[msg]) return; seen[msg]=1;
+      var box=document.getElementById("errBar");
+      if(!box){ setTimeout(function(){show(msg)},300); delete seen[msg]; return; }
+      box.hidden=false;
+      var li=document.createElement("li"); li.textContent=msg; box.querySelector("ul").appendChild(li);
+    }catch(_){}
+  }
+  window.__awShow=show;
+  window.addEventListener("error",function(e){ if(e&&e.target&&e.target!==window&&(e.target.src||e.target.href)) return; show((e&&e.message)||"script error"); });
+  window.addEventListener("unhandledrejection",function(e){ var r=e&&e.reason; show(r&&(r.message||r.code)?((r.code?r.code+": ":"")+(r.message||"")):String(r)); });
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+<style>
+/* Layout: brand header + job strip, tab bar, then per tab a work area on the left and a findings rail on the right (stacks under 1040px).
+   Changes are drawn in proof magenta, the colour a prepress proof uses for "this moved". */
+:root{
+  --bg:#eef1f6; --surface:#ffffff; --sunk:#e3e8f0; --ink:#0f1a33; --muted:#566179; --line:#d3dae6;
+  --accent:#1748c4; --accent-ink:#ffffff; --accent-soft:#dfe8fd;
+  --mag:#c8146f; --mag-soft:#fbe2ee;
+  --ok:#1d7442; --ok-bg:#dbf0e2; --warn:#8a6410; --warn-bg:#faefd2; --bad:#b0281d; --bad-bg:#fbe2df;
+  --ins:#16683a; --ins-bg:#d3eedc; --del:#a3241a; --del-bg:#f9dcd8;
+  --stage:#d9dee7;
+  --display:"Prompt","IBM Plex Sans Thai",system-ui,sans-serif;
+  --body:"IBM Plex Sans Thai","Sarabun",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b1224; --surface:#111b34; --sunk:#0d162c; --ink:#e4e9f5; --muted:#95a0bb; --line:#24314f;
+  --accent:#7ea5ff; --accent-ink:#0b1224; --accent-soft:#1a2a52;
+  --mag:#ff6fb3; --mag-soft:#3c1730;
+  --ok:#7bd59c; --ok-bg:#163223; --warn:#f0c763; --warn-bg:#382e14; --bad:#f19a91; --bad-bg:#3d1c1a;
+  --ins:#82dba2; --ins-bg:#173524; --del:#f4a097; --del-bg:#431e1b;
+  --stage:#070d1b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1224; --surface:#111b34; --sunk:#0d162c; --ink:#e4e9f5; --muted:#95a0bb; --line:#24314f;
+  --accent:#7ea5ff; --accent-ink:#0b1224; --accent-soft:#1a2a52;
+  --mag:#ff6fb3; --mag-soft:#3c1730;
+  --ok:#7bd59c; --ok-bg:#163223; --warn:#f0c763; --warn-bg:#382e14; --bad:#f19a91; --bad-bg:#3d1c1a;
+  --ins:#82dba2; --ins-bg:#173524; --del:#f4a097; --del-bg:#431e1b;
+  --stage:#070d1b; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.page{max-width:1480px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--display);margin:0;font-weight:600;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.btn{white-space:nowrap;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;line-height:1.25}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.danger{color:var(--bad)}
+.btn.danger:hover{border-color:var(--bad);background:var(--bad-bg)}
+.slotact{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:-4px}
+.slotact .link{font-size:14px}
+.m-side>.emptystage{grid-column:1/-1}
+.link{background:none;border:0;padding:2px 4px;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-size:13px}
+.link.danger{color:var(--bad)}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:13px;line-height:1.5;border:1px solid transparent;white-space:nowrap}
+.chip b{font-family:var(--mono);font-weight:500}
+.c-ok{background:var(--ok-bg);color:var(--ok)}.c-warn{background:var(--warn-bg);color:var(--warn)}
+.c-bad{background:var(--bad-bg);color:var(--bad)}.c-info{background:var(--accent-soft);color:var(--accent)}
+.c-mag{background:var(--mag-soft);color:var(--mag)}.c-plain{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.c-dash{border:1px dashed var(--muted);color:var(--muted);background:transparent}
+
+/* header */
+.top{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:14px;padding:16px 20px;display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.logo{width:58px;height:58px;flex:none;background:#ffffff;border:1px solid var(--line);border-radius:10px;padding:4px;display:grid;place-items:center}
+.logo img{max-width:100%;max-height:100%;display:block}
+.brandtxt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.brand h1{font-size:clamp(21px,3vw,28px)}
+.verdict{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* job strip */
+.jobbar{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;align-items:end}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f label,.lbl{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.f input,.f select,.f textarea,.inp{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+.f textarea{resize:vertical}
+.s1{grid-column:span 1}.s3{grid-column:span 3}.s2{grid-column:span 2}.s4{grid-column:span 4}.s6{grid-column:span 6}.s12{grid-column:span 12}
+.jobbar .act{grid-column:span 2;display:flex}
+.jobbar .act .btn{width:100%}
+@media (max-width:1040px){.s1,.s3,.s2,.jobbar .act{grid-column:span 4}.s4{grid-column:span 6}}
+@media (max-width:620px){.s1,.s3,.s2,.s4,.s6,.jobbar .act{grid-column:span 12}}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;cursor:pointer;color:var(--muted);font-family:var(--display);font-weight:500;font-size:15px;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .cnt{font-family:var(--mono);font-size:12px;border-radius:999px;padding:0 7px;background:var(--sunk);color:var(--muted);font-weight:500}
+.tab .cnt.hot{background:var(--mag-soft);color:var(--mag)}
+.tab .cnt.good{background:var(--ok-bg);color:var(--ok)}
+
+.split{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+@media (max-width:1040px){.split{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.card-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;justify-content:space-between}
+.card-h h2{font-size:17px}
+.card-b{padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* upload slots */
+.slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:620px){.slots{grid-template-columns:minmax(0,1fr)}}
+.slot{border:1.5px dashed var(--line);border-radius:10px;padding:12px;display:flex;gap:12px;align-items:center;background:var(--bg);min-width:0;transition:border-color .15s}
+.slot.drag{border-color:var(--accent);background:var(--accent-soft)}
+.slot .tagAB{font-family:var(--display);font-weight:600;font-size:20px;width:40px;height:40px;border-radius:8px;display:grid;place-items:center;flex:none;background:var(--surface);border:1px solid var(--line)}
+.slot .meta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.slot .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slot .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.slot input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+.slot select{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:2px 6px;font-size:13px}
+
+/* toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;background:none;padding:6px 12px;cursor:pointer;font-size:14px;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.ctl input[type=range]{width:120px;accent-color:var(--accent)}
+.ctl input[type=number]{width:64px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 6px;font-family:var(--mono)}
+.ctl select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 6px}
+.stats{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.warnline{font-size:13px;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:6px 10px}
+
+/* stage with crop marks */
+.stage{background:var(--stage);border-radius:10px;overflow:auto;max-height:72vh;padding:28px;position:relative}
+.sheet{position:relative;margin:0 auto}
+.sheet canvas{display:block;width:100%;height:auto;background:#ffffff}
+.frame{position:relative}
+.frame::before,.frame::after,.frame>.cm::before,.frame>.cm::after{content:"";position:absolute;width:14px;height:14px;border-color:var(--muted);border-style:solid;pointer-events:none}
+.frame::before{top:-10px;left:-10px;border-width:0 1px 1px 0}
+.frame::after{top:-10px;right:-10px;border-width:0 0 1px 1px}
+.frame>.cm::before{bottom:-10px;left:-10px;border-width:1px 1px 0 0}
+.frame>.cm::after{bottom:-10px;right:-10px;border-width:1px 0 0 1px}
+.cap{position:absolute;top:-24px;left:0;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
+.m-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px}
+.stack{position:relative}
+.stack .over{position:absolute;inset:0}
+.swipeline{position:absolute;top:0;bottom:0;width:2px;background:var(--mag);transform:translateX(-1px);pointer-events:none}
+.blink-b .layer-a{visibility:hidden}
+.swipectl{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.swipectl input{flex:1;accent-color:var(--mag)}
+.emptystage{padding:56px 20px;text-align:center;color:var(--muted)}
+
+/* regions rail */
+.rlist{display:flex;flex-direction:column;max-height:calc(72vh + 120px);overflow:auto}
+.reg{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.reg:last-child{border-bottom:0}
+.reg:hover{background:var(--bg)}
+.reg.sel{background:var(--mag-soft)}
+.reg .n{width:26px;height:26px;border-radius:50%;background:var(--mag);color:#ffffff;display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:500}
+.reg.k-ok .n{background:var(--ok)}.reg.k-bad .n{background:var(--bad)}
+.crops{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.crops figure{margin:0;display:flex;flex-direction:column;gap:2px;min-width:0}
+.crops figcaption{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.crops canvas{width:100%;height:auto;border:1px solid var(--line);border-radius:4px;background:#ffffff}
+.rbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.mbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:1px 10px;font-size:12px;cursor:pointer}
+.mbtn[aria-pressed="true"].ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.mbtn[aria-pressed="true"].bad{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
+.railnote{padding:20px 16px;color:var(--muted);font-size:14px}
+
+/* text compare */
+.tpair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.tpair{grid-template-columns:minmax(0,1fr)}}
+.tpair textarea{min-height:220px;font-size:14px;line-height:1.6}
+.opts{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.diffout{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;font-size:15px;background:var(--bg);border-radius:8px;padding:14px;border:1px solid var(--line)}
+.diffout del{background:var(--del-bg);color:var(--del);text-decoration:line-through;text-decoration-thickness:1.5px;border-radius:3px;padding:0 1px}
+.diffout ins{background:var(--ins-bg);color:var(--ins);text-decoration:underline;text-underline-offset:3px;border-radius:3px;padding:0 1px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted);align-items:center}
+.legend del{background:var(--del-bg);color:var(--del)}.legend ins{background:var(--ins-bg);color:var(--ins);text-decoration:none}
+.chg{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px;font-size:14px}
+.chg:last-child{border-bottom:0}
+.chg .k{display:flex;gap:8px;align-items:center}
+.chg .ctx{color:var(--muted);overflow-wrap:anywhere}
+.chg del{background:var(--del-bg);color:var(--del)}.chg ins{background:var(--ins-bg);color:var(--ins);text-decoration:none}
+
+/* checklist */
+.ck{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:start}
+.ck:last-child{border-bottom:0}
+.ck .t{font-weight:600}
+.ck .h{font-size:13px;color:var(--muted)}
+.ck .auto{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.ck .snip{color:var(--muted);overflow-wrap:anywhere}
+.ck .note{grid-column:1/-1}
+.ck .note input{font-size:13px;padding:5px 9px}
+.ck.s-pass{box-shadow:inset 3px 0 0 var(--ok)}.ck.s-fail{box-shadow:inset 3px 0 0 var(--bad)}.ck.s-na{box-shadow:inset 3px 0 0 var(--line)}
+.tri{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tri button{border:0;background:var(--surface);padding:4px 10px;cursor:pointer;font-size:13px;color:var(--muted)}
+.tri button+button{border-left:1px solid var(--line)}
+.tri button[aria-pressed="true"].p{background:var(--ok-bg);color:var(--ok);font-weight:600}
+.tri button[aria-pressed="true"].f{background:var(--bad-bg);color:var(--bad);font-weight:600}
+.tri button[aria-pressed="true"].n{background:var(--sunk);color:var(--ink);font-weight:600}
+.grp{padding:10px 16px;background:var(--bg);font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.meter{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--sunk)}
+.meter i{display:block;height:100%}
+.ref{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* history */
+.hfilter{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hfilter .seg button{font-size:13px;padding:5px 10px}
+.hitem{border-bottom:1px solid var(--line)}
+.hitem:last-child{border-bottom:0}
+.hitem summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:12px;padding:12px 16px;align-items:center}
+.hitem summary::-webkit-details-marker{display:none}
+.hitem summary:hover{background:var(--bg)}
+.thumb{width:72px;height:54px;border-radius:6px;border:1px solid var(--line);background:#ffffff;object-fit:contain}
+.thumb.none{display:grid;place-items:center;font-size:11px;color:var(--muted);background:var(--bg)}
+.htitle{font-weight:600;overflow-wrap:anywhere}
+.hsub{font-size:13px;color:var(--muted)}
+.hright{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.hbody{padding:4px 16px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:720px){.hbody{grid-template-columns:minmax(0,1fr)}.hitem summary{grid-template-columns:56px minmax(0,1fr)}.hright{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:flex-start}.thumb{width:56px;height:44px}}
+.hbody img{width:100%;border:1px solid var(--line);border-radius:6px;background:#ffffff}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:14px;margin:0}
+.kv dt{color:var(--muted)}.kv dd{margin:0;overflow-wrap:anywhere}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.log li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
+.log .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:7px}
+.approve{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:8px;border-top:1px dashed var(--line)}
+.approve input{max-width:220px}
+.emptyh{padding:36px 18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.msg{font-size:13px;color:var(--muted)}
+.msg.err{color:var(--bad)}.msg.good{color:var(--ok)}
+.foot{font-size:12px;color:var(--muted);text-align:center}
+/* AI audit */
+.aibar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.aifile{display:flex;gap:10px;align-items:center;min-width:0;flex:1 1 260px}
+.aifile .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aistatus{font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:center;min-height:22px}
+.aistatus.err{color:var(--bad)}
+.spin{width:15px;height:15px;flex:none;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.btn.big{padding:10px 18px;font-size:16px}
+.scope{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px;font-size:13px;color:var(--muted);margin:0;padding:0;list-style:none}
+.scope li{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.scope b{display:block;color:var(--ink);font-weight:600;font-size:14px}
+.vbig{display:flex;flex-direction:column;gap:6px}
+.vbig .v{font-family:var(--display);font-size:24px;font-weight:600;line-height:1.25}
+.vbig .v.ready{color:var(--ok)}.vbig .v.fix{color:var(--warn)}.vbig .v.reject{color:var(--bad)}
+.iss{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.iss:last-child{border-bottom:0}
+.iss:hover{background:var(--bg)}
+.iss.sel{background:var(--accent-soft)}
+.iss .n{width:26px;height:26px;border-radius:50%;color:#ffffff;display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:500;background:var(--accent)}
+.iss.sv-high .n{background:var(--bad)}.iss.sv-medium .n{background:var(--warn)}
+.iss .top2{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.iss .where{font-size:13px;color:var(--muted)}
+.fe{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:14px;align-items:baseline;margin-top:4px;overflow-wrap:anywhere}
+.fe del{background:var(--del-bg);color:var(--del);border-radius:3px;padding:0 3px}
+.fe ins{background:var(--ins-bg);color:var(--ins);text-decoration:none;border-radius:3px;padding:0 3px}
+.fix{font-size:14px;margin-top:4px}
+.transcript{white-space:pre-wrap;font-size:13px;max-height:300px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-wrap:anywhere}
+.aiev{color:var(--muted);overflow-wrap:anywhere}
+.ph{aspect-ratio:2/1;max-width:100%;border:1.5px dashed var(--muted);border-radius:6px;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:14px;padding:16px;background:var(--surface)}
+@media (max-width:720px){.m-side{grid-template-columns:minmax(0,1fr)!important;gap:36px!important}}
+.errbar{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);border-radius:10px;padding:10px 14px;font-size:14px}
+.errbar ul{margin:6px 0 0;padding-left:18px;font-family:var(--mono);font-size:12px;overflow-wrap:anywhere}
+.envbar{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:14px;line-height:1.6}
+.envbar .lnk{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.envbar code{font-family:var(--mono);font-size:13px;background:var(--surface);color:var(--ink);padding:1px 6px;border-radius:4px;user-select:all;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.spin{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="page">
+  <div class="errbar" id="errBar" hidden role="alert"><strong>โปรแกรมเจอข้อผิดพลาด</strong> ส่วนที่เหลือยังใช้ต่อได้ ถ้าใช้ไม่ได้ให้โหลดหน้าใหม่ และส่งภาพหน้าจอกล่องนี้ให้ผู้ดูแล<ul></ul></div>
+  <div class="envbar" id="envBar">
+  <strong>ตรวจด้วย OpenAI</strong>
+  <p>เมื่อกดตรวจ ภาพและข้อความที่เลือกจะส่งไป OpenAI · PDF ตรวจเฉพาะหน้าที่เลือก · ผู้ตรวจต้องยืนยันผลก่อนอนุมัติพิมพ์</p>
+  <div class="row"><label for="apiUrl">ที่อยู่เซิร์ฟเวอร์ AI <input id="apiUrl" type="url" placeholder="https://your-project.vercel.app" autocomplete="off"></label>
+  <label for="apiAccess">รหัสเข้าใช้ AI <input id="apiAccess" type="password" autocomplete="off" placeholder="รหัสจากผู้ดูแล ไม่ใช่ OpenAI API Key"></label>
+  <button class="btn" id="apiConnect" type="button">เชื่อมต่อ</button></div>
+  <p id="apiConnection" role="status" aria-live="polite">กำลังตรวจการเชื่อมต่อ…</p>
+  </div>
+  <header class="top">
+    <div class="brand">
+      <div class="logo"><img src="data:image/jpeg;base64,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" alt="โลโก้ BCL Bio-Collab Co., Ltd."></div>
+      <div class="brandtxt">
+        <span class="eyebrow">Bio-Collab Co., Ltd. · Artwork QC · v6 · 20 ต.ค. 69</span>
+        <h1>ตรวจ Artwork บรรจุภัณฑ์</h1>
+      </div>
+    </div>
+    <div class="verdict" id="verdict" aria-live="polite"></div>
+  </header>
+
+  <section class="jobbar" aria-label="ข้อมูลงานที่ตรวจ">
+    <div class="f s3"><label for="jProduct">ชื่อสินค้า *</label><input id="jProduct" placeholder="เช่น เซรั่มไนอะซินาไมด์ 30 มล."></div>
+    <div class="f s2"><label for="jSku">รหัสสินค้า / SKU</label><input id="jSku" placeholder="เช่น LS-SR-030"></div>
+    <div class="f s2"><label for="jBrand">แบรนด์ / ลูกค้า</label><input id="jBrand" placeholder="ชื่อแบรนด์ลูกค้า"></div>
+    <div class="f s2"><label for="jPart">ชิ้นงาน</label>
+      <select id="jPart"><option>ฉลากขวด</option><option>กล่อง</option><option>หลอด</option><option>ซอง</option><option>กระปุก</option><option>สติกเกอร์</option><option>อื่นๆ</option></select></div>
+    <div class="f s1"><label for="jVer">เวอร์ชัน</label><input id="jVer" placeholder="V2"></div>
+    <div class="act"><button class="btn primary" id="goSave" type="button">บันทึกผลตรวจ</button></div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="ขั้นตอนการตรวจ">
+    <button class="tab" role="tab" id="t-ai" data-tab="ai" aria-selected="true">AI ตรวจอัตโนมัติ <span class="cnt" id="cntAi">–</span></button>
+    <button class="tab" role="tab" id="t-image" data-tab="image" aria-selected="false">เทียบภาพ <span class="cnt" id="cntImage">–</span></button>
+    <button class="tab" role="tab" id="t-text" data-tab="text" aria-selected="false">เทียบข้อความ <span class="cnt" id="cntText">–</span></button>
+    <button class="tab" role="tab" id="t-checklist" data-tab="checklist" aria-selected="false">Checklist ฉลาก อย. <span class="cnt" id="cntCheck">–</span></button>
+    <button class="tab" role="tab" id="t-history" data-tab="history" aria-selected="false">ประวัติและอนุมัติ <span class="cnt" id="cntHist">–</span></button>
+  </nav>
+
+  <!-- ============ AI ============ -->
+  <section class="split" id="p-ai" role="tabpanel" aria-labelledby="t-ai">
+    <div class="col">
+      <div class="card">
+        <div class="card-b">
+          <div class="slots">
+            <div class="slot" id="aiSlotA"><span class="tagAB">A</span>
+              <div class="meta"><span class="lbl">ต้นฉบับที่อนุมัติ (ไม่บังคับ)</span><span class="nm" id="aiNmA">—</span>
+                <div class="row"><label class="btn" for="fileA" data-pick="A">เลือกไฟล์</label><button class="btn danger" type="button" data-clear="A" hidden>ลบไฟล์</button><span id="aiSxA"></span></div></div></div>
+            <div class="slot" id="aiSlotB"><span class="tagAB">B</span>
+              <div class="meta"><span class="lbl">ไฟล์ใหม่ที่ให้ AI ตรวจ</span><span class="nm" id="aiFile">—</span>
+                <div class="row"><label class="btn" for="fileB" data-pick="B">เลือกไฟล์</label><button class="btn danger" type="button" data-clear="B" hidden>ลบไฟล์</button><span id="aiSxB"></span></div></div></div>
+          </div>
+          <div class="slotact"><button class="link" type="button" data-swap>สลับไฟล์ A ↔ B</button><span class="msg" data-undo></span></div>
+          <div class="aibar">
+            <label class="ctl" for="aiDepth">ความละเอียด <select id="aiDepth"><option value="default">มาตรฐาน (แนะนำ ประมาณ 1 นาที)</option><option value="complex">ละเอียดที่สุด (1–3 นาที)</option></select></label>
+          </div>
+          <ul class="scope">
+            <li><b>ข้อความบังคับ อย.</b>อ่านฉลากแล้วตรวจครบ 12 ข้อ กรอก Checklist ให้</li>
+            <li><b>คำสะกดและตัวเลข</b>ไทย อังกฤษ ชื่อ INCI วรรณยุกต์ สระ</li>
+            <li><b>คำกล่าวอ้าง</b>สรรพคุณทางยาและคำเกินจริง</li>
+            <li id="aiScopeMaster"><b>เทียบต้นฉบับ</b>เทียบกับข้อความในแท็บเทียบข้อความ</li>
+          </ul>
+          <div class="aibar">
+            <button class="btn primary big" id="aiRun" type="button">ให้ AI ตรวจ artwork</button>
+            <button class="btn" id="aiStop" type="button" hidden>หยุด</button>
+            <span class="aistatus" id="aiStatus" role="status"></span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>เทียบต้นฉบับกับไฟล์ใหม่</h2><span class="msg">กรอบบนไฟล์ B คือจุดที่ AI พบปัญหา (ตำแหน่งโดยประมาณ) กดรายการด้านขวาเพื่อดูจุดนั้น</span></div>
+        <div class="card-b"><div class="stage" id="aiStage"><div class="sheet m-side" id="aiSheet" style="width:100%"></div></div>
+          <label class="ctl" for="aiZoom">ซูม <select id="aiZoom"><option value="fit">พอดีจอ</option><option value="1">100%</option><option value="2">200%</option></select></label></div>
+      </div>
+    </div>
+    <aside class="col">
+      <div class="card">
+        <div class="card-h"><h2>ผลตรวจจาก AI</h2><span class="msg" id="aiWhen"></span></div>
+        <div class="card-b" id="aiVerdict"></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>ปัญหาที่พบ</h2><span class="msg" id="aiIssueSum"></span></div>
+        <div id="aiIssues"></div>
+      </div>
+      <div class="card" id="aiTxCard" hidden>
+        <div class="card-h"><h2>ข้อความที่ AI อ่านได้</h2><button class="link" id="aiUseTx" type="button">นำไปเทียบกับต้นฉบับ</button></div>
+        <div class="card-b"><div class="transcript" id="aiTx"></div></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ============ IMAGE ============ -->
+  <section class="split" id="p-image" role="tabpanel" aria-labelledby="t-image" hidden>
+    <div class="col">
+      <div class="card">
+        <div class="card-b">
+          <div class="slots">
+            <div class="slot" id="slotA">
+              <span class="tagAB">A</span>
+              <div class="meta">
+                <span class="lbl">ต้นฉบับที่อนุมัติ / เวอร์ชันเดิม</span>
+                <span class="nm" id="nmA">—</span>
+                <div class="row"><label class="btn" for="fileA" data-pick="A">เลือกไฟล์</label><button class="btn danger" type="button" data-clear="A" hidden>ลบไฟล์</button><input type="file" id="fileA" accept="image/*,application/pdf"><span id="pgA"></span><span id="sxA"></span></div>
+              </div>
+            </div>
+            <div class="slot" id="slotB">
+              <span class="tagAB">B</span>
+              <div class="meta">
+                <span class="lbl">ไฟล์ใหม่ที่ต้องตรวจ</span>
+                <span class="nm" id="nmB">—</span>
+                <div class="row"><label class="btn" for="fileB" data-pick="B">เลือกไฟล์</label><button class="btn danger" type="button" data-clear="B" hidden>ลบไฟล์</button><input type="file" id="fileB" accept="image/*,application/pdf"><span id="pgB"></span><span id="sxB"></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="slotact"><button class="link" type="button" data-swap>สลับไฟล์ A ↔ B</button><span class="msg" data-undo></span></div>
+          <p class="msg">รองรับ JPG, PNG และ PDF (ลากไฟล์มาวางที่ช่องได้) · ไฟล์เปิดในเบราว์เซอร์นี้เท่านั้น ไม่ได้อัปโหลดขึ้นเซิร์ฟเวอร์</p>
+          <div class="toolbar">
+            <div class="seg" role="group" aria-label="รูปแบบการแสดงผล" id="modeSeg">
+              <button data-m="side" aria-pressed="true">วางคู่</button>
+              <button data-m="swipe" aria-pressed="false">เลื่อนเทียบ</button>
+              <button data-m="diff" aria-pressed="false">ไฮไลต์จุดต่าง</button>
+              <button data-m="blink" aria-pressed="false">สลับไปมา</button>
+            </div>
+            <label class="ctl" for="thr">ความไว <input type="range" id="thr" min="8" max="140" step="2" value="40"><span class="num" id="thrV">40</span></label>
+            <span class="ctl">เลื่อน B <label for="dx">X</label><input type="number" id="dx" value="0" step="1"><label for="dy">Y</label><input type="number" id="dy" value="0" step="1"></span>
+            <label class="ctl" for="zoom">ซูม <select id="zoom"><option value="fit">พอดีจอ</option><option value="1">100%</option><option value="2">200%</option></select></label>
+          </div>
+          <div class="stats" id="imgStats"></div>
+          <div class="warnline" id="sizeWarn" hidden></div>
+          <div class="stage" id="stage"><div class="sheet" id="sheet"></div></div>
+          <div class="swipectl" id="swipeCtl" hidden><span>A</span><input type="range" id="swipe" min="0" max="100" value="50" aria-label="ตำแหน่งเส้นเทียบ"><span>B</span></div>
+        </div>
+      </div>
+    </div>
+    <aside class="card">
+      <div class="card-h"><h2>จุดที่ต่างกัน</h2><span class="msg" id="regSum"></span></div>
+      <div class="rlist" id="regList"></div>
+    </aside>
+  </section>
+
+  <!-- ============ TEXT ============ -->
+  <section class="split" id="p-text" role="tabpanel" aria-labelledby="t-text" hidden>
+    <div class="col">
+      <div class="card">
+        <div class="card-b">
+          <div class="tpair">
+            <div class="f"><label for="tA">ข้อความต้นฉบับ (ตามที่จดแจ้ง / อนุมัติ)</label><textarea id="tA" spellcheck="false"></textarea>
+              <div><button class="link" id="fromA" disabled>ใช้ข้อความจาก PDF ช่อง A</button></div></div>
+            <div class="f"><label for="tB">ข้อความบน artwork ใหม่</label><textarea id="tB" spellcheck="false"></textarea>
+              <div><button class="link" id="fromB" disabled>ใช้ข้อความจาก PDF ช่อง B</button></div></div>
+          </div>
+          <div class="opts">
+            <label><input type="checkbox" id="oSpace" checked> ไม่นับช่องว่างและการขึ้นบรรทัด</label>
+            <label><input type="checkbox" id="oAm" checked> รวมสระอำที่พิมพ์แยก (ํ + า)</label>
+            <label><input type="checkbox" id="oCase"> ไม่สนตัวพิมพ์เล็ก-ใหญ่</label>
+          </div>
+          <p class="msg">ถ้า artwork เป็น PDF ที่ยังไม่ได้แปลงตัวอักษรเป็นเส้น (outline) กดปุ่ม "ใช้ข้อความจาก PDF" เพื่อดึงข้อความมาเทียบได้เลย</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>ผลเทียบ</h2>
+          <span class="legend"><span><del>ข้อความที่หายไป</del></span><span><ins>ข้อความที่เพิ่มหรือเปลี่ยน</ins></span></span></div>
+        <div class="card-b"><div id="amWarn" class="warnline" hidden></div><div class="diffout" id="diffOut"></div></div>
+      </div>
+    </div>
+    <aside class="card">
+      <div class="card-h"><h2>รายการที่ต่างกัน</h2><span class="msg" id="txtSum"></span></div>
+      <div id="chgList"></div>
+    </aside>
+  </section>
+
+  <!-- ============ CHECKLIST ============ -->
+  <section class="split" id="p-checklist" role="tabpanel" aria-labelledby="t-checklist" hidden>
+    <div class="card">
+      <div class="card-h"><h2>ข้อความบังคับบนฉลากเครื่องสำอาง</h2>
+        <span class="msg">ระบบหาคำในข้อความ artwork ให้ก่อน ผู้ตรวจต้องดูของจริงและกดผลเอง</span></div>
+      <div id="ckList"></div>
+    </div>
+    <aside class="col">
+      <div class="card">
+        <div class="card-h"><h2>สรุป Checklist</h2><span class="msg num" id="ckPct"></span></div>
+        <div class="card-b"><div class="meter" id="ckMeter"></div><div class="stats" id="ckStats"></div>
+          <div class="toolbar"><button class="btn" id="ckReset" type="button">ล้างผล Checklist</button></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>คำกล่าวอ้างที่ควรทบทวน</h2></div>
+        <div class="card-b" id="claimBox"></div>
+      </div>
+      <p class="ref">อ้างอิง: ประกาศคณะกรรมการเครื่องสำอาง เรื่อง ฉลากของเครื่องสำอาง พ.ศ. 2562 และประกาศเรื่องการแสดงคำเตือนที่ฉลาก (วัตถุกันเสีย, สารป้องกันแสงแดด, วัตถุที่ใช้เป็นส่วนผสม) ข้อกำหนดอาจมีการแก้ไข ควรเทียบกับประกาศฉบับล่าสุดที่ cosmetic.fda.moph.go.th ก่อนอนุมัติพิมพ์</p>
+    </aside>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section class="split" id="p-history" role="tabpanel" aria-labelledby="t-history" hidden>
+    <div class="card">
+      <div class="card-h"><h2>ประวัติการตรวจ</h2>
+        <div class="hfilter">
+          <div class="seg" role="group" aria-label="กรองสถานะ" id="hSeg">
+            <button data-s="all" aria-pressed="true">ทั้งหมด</button>
+            <button data-s="pending" aria-pressed="false">รออนุมัติ</button>
+            <button data-s="fix" aria-pressed="false">ต้องแก้ไข</button>
+            <button data-s="approved" aria-pressed="false">อนุมัติแล้ว</button>
+            <button data-s="rejected" aria-pressed="false">ไม่อนุมัติ</button>
+          </div>
+          <input class="inp" id="hSearch" placeholder="ค้นหาชื่อสินค้า, SKU, แบรนด์" style="width:220px;padding:5px 9px;font-size:14px">
+        </div>
+      </div>
+      <div id="hList"></div>
+    </div>
+    <aside class="card" id="saveCard">
+      <div class="card-h"><h2>บันทึกผลตรวจครั้งนี้</h2></div>
+      <form class="card-b" id="saveForm" autocomplete="off">
+        <dl class="kv" id="savePreview"></dl>
+        <div class="f"><label for="rvName">ผู้ตรวจ *</label><input id="rvName" placeholder="ชื่อผู้ตรวจ"></div>
+        <div class="f"><label for="rvResult">ผลการตรวจ</label>
+          <select id="rvResult"><option value="pending">ผ่านการตรวจ ส่งรออนุมัติ</option><option value="fix">ต้องแก้ไข ส่งกลับผู้ออกแบบ</option></select></div>
+        <div class="f"><label for="rvNote">หมายเหตุถึงผู้ออกแบบ / ผู้อนุมัติ</label><textarea id="rvNote" rows="3" placeholder="เช่น แก้ปริมาณสุทธิให้ตรงจดแจ้ง"></textarea></div>
+        <button class="btn primary" type="submit" id="saveBtn">บันทึกผลตรวจ</button>
+        <span class="msg" id="saveMsg" role="status"></span>
+      </form>
+    </aside>
+  </section>
+
+  <p class="foot" id="storeNote"></p>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TZ="Asia/Bangkok";
+const fmtDT=t=>new Date(t).toLocaleString("th-TH",{timeZone:TZ,day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+const MAG="#c8146f";
+
+/* ================= state ================= */
+const S={mode:"side",thr:40,dx:0,dy:0,zoom:"fit",regions:[],marks:{},sel:-1,pct:0,maskCv:null,
+  textItems:[],textReady:false,am:0,check:{},claims:[],hist:[],hFilter:"all",hSearch:"",openId:null,confirmDel:null,approverDraft:{}};
+const slots={A:{src:null},B:{src:null}};
+const cA=document.createElement("canvas"), cB=document.createElement("canvas"), cD=document.createElement("canvas");
+cA.className="layer-a"; cB.className="layer-b";
+
+/* ================= tabs ================= */
+const TABS=["ai","image","text","checklist","history"];
+function showTab(t){
+  if(!TABS.includes(t)) t="ai";
+  TABS.forEach(n=>{ $("p-"+n).hidden=n!==t; $("t-"+n).setAttribute("aria-selected",n===t?"true":"false"); });
+  if(t==="history") renderSavePreview();
+}
+document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest(".tab"); if(b){showTab(b.dataset.tab); try{history.replaceState(null,"","#"+b.dataset.tab)}catch(_){}}});
+$("goSave").onclick=()=>{showTab("history"); $("rvName").focus();};
+
+/* ================= job fields (draft kept in this browser) ================= */
+const JOBK="bcl-awqc-job", JF=["jProduct","jSku","jBrand","jPart","jVer"];
+try{const d=JSON.parse(localStorage.getItem(JOBK)||"{}"); JF.forEach(k=>{if(d[k]!=null) $(k).value=d[k]});}catch(_){}
+JF.forEach(k=>$(k).addEventListener("input",()=>{try{const d={};JF.forEach(x=>d[x]=$(x).value);localStorage.setItem(JOBK,JSON.stringify(d))}catch(_){}}));
+try{const r=localStorage.getItem("bcl-awqc-reviewer"); if(r) $("rvName").value=r;}catch(_){}
+
+/* ================= file loading ================= */
+const PDF_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFW_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let pdfReady=null;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("load "+src));document.head.appendChild(s);});}
+function loadPdf(){
+  if(!pdfReady) pdfReady=loadScript(PDF_URL).then(()=>loadScript(PDFW_URL)).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFW_URL;return window.pdfjsLib;});
+  return pdfReady;
+}
+const MAXW=1600;
+function toCanvas(img,w,h){
+  const s=Math.min(1,MAXW/w), c=document.createElement("canvas");
+  c.width=Math.round(w*s); c.height=Math.round(h*s);
+  const x=c.getContext("2d"); x.fillStyle="#ffffff"; x.fillRect(0,0,c.width,c.height);
+  x.imageSmoothingQuality="high"; x.drawImage(img,0,0,c.width,c.height); return c;
+}
+async function renderPdfPage(sl){
+  const page=await sl.pdf.getPage(sl.page);
+  const v1=page.getViewport({scale:1}), scale=Math.min(4,MAXW/v1.width), vp=page.getViewport({scale});
+  const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+  const x=c.getContext("2d"); x.fillStyle="#ffffff"; x.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:x,viewport:vp}).promise;
+  sl.src=c; sl.sizeNote=Math.round(v1.width*25.4/72)+"×"+Math.round(v1.height*25.4/72)+" มม.";
+  try{const tc=await page.getTextContent(); sl.text=tc.items.map(i=>i.str+(i.hasEOL?"\n":"")).join("").trim();}catch(_){sl.text="";}
+}
+async function loadFile(key,file){
+  if(undoSlot&&undoSlot.k===key) undoSlot=null;
+  if(!slots[key]||slots[key].sample===undefined&&!slots[key].src) slots[key]={src:null};
+  const sl=slots[key]; $("nm"+key).textContent="กำลังเปิด "+file.name+"…";
+  try{
+    sl.sample=false; sl.name=file.name; sl.text=""; sl.pdf=null; sl.sizeNote="";
+    if(file.type==="application/pdf"||/\.pdf$/i.test(file.name)){
+      const lib=await loadPdf();
+      sl.pdf=await lib.getDocument({data:await file.arrayBuffer()}).promise; sl.page=1; sl.pages=sl.pdf.numPages;
+      await renderPdfPage(sl);
+    }else{
+      const url=URL.createObjectURL(file); const img=new Image();
+      await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("img"));img.src=url;});
+      sl.src=toCanvas(img,img.naturalWidth,img.naturalHeight); sl.sizeNote=img.naturalWidth+"×"+img.naturalHeight+" px"; URL.revokeObjectURL(url);
+    }
+  }catch(err){ sl.src=null; $("nm"+key).textContent="เปิดไฟล์ไม่ได้ ลองบันทึกเป็น PDF หรือ PNG แล้วเลือกใหม่"; return; }
+  S.dx=0;S.dy=0;$("dx").value=0;$("dy").value=0;
+  paintSlot(key); build(); syncPdfTextButtons();
+}
+let undoSlot=null;
+function syncSlotButtons(){
+  for(const k of ["A","B"]){ const has=!!slots[k].src;
+    document.querySelectorAll(`[data-clear="${k}"]`).forEach(b=>b.hidden=!has);
+    document.querySelectorAll(`[data-pick="${k}"]`).forEach(l=>l.textContent=has?"เปลี่ยนไฟล์":"เลือกไฟล์"); }
+  const any=!!(slots.A.src||slots.B.src);
+  document.querySelectorAll("[data-swap]").forEach(b=>b.hidden=!any);
+  document.querySelectorAll("[data-undo]").forEach(m=>{ m.innerHTML=undoSlot?`ลบไฟล์ ${undoSlot.k} แล้ว · <button class="link" type="button" data-restore>เอาไฟล์คืน</button>`:""; });
+}
+function afterSlotChange(){ S.dx=0;S.dy=0;$("dx").value=0;$("dy").value=0; paintSlot("A"); paintSlot("B"); build(); syncPdfTextButtons(); }
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-clear]"), sw=e.target.closest("[data-swap]"), rs=e.target.closest("[data-restore]");
+  if(c){ const k=c.dataset.clear; undoSlot={k,sl:slots[k]}; slots[k]={src:null}; afterSlotChange(); }
+  else if(sw){ const t=slots.A; slots.A=slots.B; slots.B=t; undoSlot=null; afterSlotChange(); }
+  else if(rs&&undoSlot){ slots[undoSlot.k]=undoSlot.sl; undoSlot=null; afterSlotChange(); }
+});
+function paintSlot(key){
+  const sl=slots[key];
+  $("nm"+key).textContent=sl.src?sl.name:"ยังไม่ได้เลือกไฟล์";
+  $("sx"+key).innerHTML=sl.src?(sl.sample?'<span class="chip c-dash">ไฟล์ตัวอย่าง</span>':(sl.sizeNote?`<span class="chip c-plain num">${esc(sl.sizeNote)}</span>`:"")):"";
+  const pg=$("pg"+key);
+  if(sl.pdf&&sl.pages>1){
+    pg.innerHTML=`<select aria-label="เลือกหน้า PDF ช่อง ${key}">${Array.from({length:sl.pages},(_,i)=>`<option value="${i+1}"${i+1===sl.page?" selected":""}>หน้า ${i+1}/${sl.pages}</option>`).join("")}</select>`;
+    pg.querySelector("select").onchange=async e=>{sl.page=+e.target.value; await renderPdfPage(sl); build(); syncPdfTextButtons();};
+  }else pg.innerHTML="";
+  syncSlotButtons();
+}
+["A","B"].forEach(k=>{
+  const az=$("aiSlot"+k);
+  az.addEventListener("dragover",e=>{e.preventDefault();az.classList.add("drag")});
+  az.addEventListener("dragleave",()=>az.classList.remove("drag"));
+  az.addEventListener("drop",e=>{e.preventDefault();az.classList.remove("drag");const f=e.dataTransfer.files[0];if(f) loadFile(k,f);});
+  $("file"+k).addEventListener("change",e=>{const f=e.target.files[0]; if(f) loadFile(k,f); e.target.value="";});
+  const z=$("slot"+k);
+  z.addEventListener("dragover",e=>{e.preventDefault();z.classList.add("drag")});
+  z.addEventListener("dragleave",()=>z.classList.remove("drag"));
+  z.addEventListener("drop",e=>{e.preventDefault();z.classList.remove("drag");const f=e.dataTransfer.files[0];if(f) loadFile(k,f);});
+});
+
+/* ================= normalise + diff ================= */
+function build(){
+  const a=slots.A.src,b=slots.B.src;
+  if(!a||!b){ S.regions=[];S.pct=0;S.maskCv=null; layout(); renderRegions(); renderImgStats(); summary(); renderAI(); return; }
+  const W=a.width, bh=Math.round(b.height*W/b.width), H=Math.max(a.height,bh);
+  for(const c of [cA,cB,cD]){c.width=W;c.height=H;}
+  let x=cA.getContext("2d"); x.fillStyle="#ffffff"; x.fillRect(0,0,W,H); x.drawImage(a,0,0);
+  x=cB.getContext("2d"); x.fillStyle="#ffffff"; x.fillRect(0,0,W,H); x.imageSmoothingQuality="high"; x.drawImage(b,S.dx,S.dy,W,bh);
+  const ra=a.width/a.height, rb=b.width/b.height, w=$("sizeWarn");
+  if(Math.abs(ra-rb)/ra>0.01){ w.hidden=false; w.textContent=`สัดส่วนหน้างานไม่เท่ากัน (A ${a.width}×${a.height}, B ${b.width}×${b.height}) ระบบย่อ/ขยาย B ให้กว้างเท่า A แล้ว ตรวจขนาดไดคัทอีกครั้ง`; }
+  else w.hidden=true;
+  computeDiff(); S.sel=-1; drawDiff(); layout(); renderRegions(); renderImgStats(); summary(); renderAI();
+}
+function workData(src,ww,wh){
+  const c=document.createElement("canvas"); c.width=ww;c.height=wh;
+  const x=c.getContext("2d",{willReadFrequently:true}); x.imageSmoothingQuality="high"; x.drawImage(src,0,0,ww,wh);
+  return x.getImageData(0,0,ww,wh).data;
+}
+function computeDiff(){
+  const W=cA.width,H=cA.height,s=Math.min(1,900/W),ww=Math.max(1,Math.round(W*s)),wh=Math.max(1,Math.round(H*s));
+  const da=workData(cA,ww,wh), db=workData(cB,ww,wh), thr=S.thr;
+  const mc=document.createElement("canvas"); mc.width=ww; mc.height=wh;
+  const mx=mc.getContext("2d"), mask=mx.createImageData(ww,wh), md=mask.data;
+  const cell=6,gx=Math.ceil(ww/cell),gy=Math.ceil(wh/cell),cnt=new Uint16Array(gx*gy);
+  let changed=0;
+  for(let y=0;y<wh;y++){const row=((y/cell)|0)*gx;
+    for(let x=0;x<ww;x++){const i=(y*ww+x)*4;
+      const d=Math.max(Math.abs(da[i]-db[i]),Math.abs(da[i+1]-db[i+1]),Math.abs(da[i+2]-db[i+2]));
+      if(d>thr){changed++;md[i]=200;md[i+1]=20;md[i+2]=111;md[i+3]=255;cnt[row+((x/cell)|0)]++;}}}
+  mx.putImageData(mask,0,0); S.maskCv=mc;
+  const seen=new Uint8Array(gx*gy), R=2, MIN=2; let boxes=[];
+  for(let c=0;c<gx*gy;c++){
+    if(cnt[c]<MIN||seen[c]) continue;
+    let x0=1e9,y0=1e9,x1=-1,y1=-1,px=0; const st=[c]; seen[c]=1;
+    while(st.length){const k=st.pop(),cx=k%gx,cy=(k/gx)|0; px+=cnt[k];
+      if(cx<x0)x0=cx; if(cy<y0)y0=cy; if(cx>x1)x1=cx; if(cy>y1)y1=cy;
+      for(let oy=-R;oy<=R;oy++)for(let ox=-R;ox<=R;ox++){const nx=cx+ox,ny=cy+oy; if(nx<0||ny<0||nx>=gx||ny>=gy)continue; const n=ny*gx+nx; if(!seen[n]&&cnt[n]>=MIN){seen[n]=1;st.push(n);}}}
+    if(px<6) continue;
+    const pad=8;
+    boxes.push({x:Math.max(0,x0*cell/s-pad),y:Math.max(0,y0*cell/s-pad),w:Math.min(W,(x1-x0+1)*cell/s+pad*2),h:Math.min(H,(y1-y0+1)*cell/s+pad*2),px});
+  }
+  // merge overlapping boxes
+  let merged=true;
+  while(merged){merged=false;
+    outer: for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];
+      if(a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h){
+        const x=Math.min(a.x,b.x),y=Math.min(a.y,b.y);
+        boxes[i]={x,y,w:Math.max(a.x+a.w,b.x+b.w)-x,h:Math.max(a.y+a.h,b.y+b.h)-y,px:a.px+b.px};
+        boxes.splice(j,1); merged=true; break outer;}}}
+  boxes.sort((a,b)=>Math.round(a.y/60)-Math.round(b.y/60)||a.x-b.x);
+  S.regions=boxes.slice(0,60).map((b,i)=>Object.assign(b,{n:i+1}));
+  S.pct=changed/(ww*wh)*100; S.marks={};
+}
+function drawDiff(){
+  if(!S.maskCv) return;
+  const W=cD.width,H=cD.height,x=cD.getContext("2d");
+  x.drawImage(cB,0,0); x.fillStyle="rgba(255,255,255,0.62)"; x.fillRect(0,0,W,H);
+  x.imageSmoothingEnabled=false; x.drawImage(S.maskCv,0,0,W,H); x.imageSmoothingEnabled=true;
+  const lw=Math.max(2,W/450), r=Math.max(11,W/70);
+  S.regions.forEach((b,i)=>{
+    const mk=S.marks[i], col=i===S.sel?"#1748c4":mk==="ok"?"#1d7442":mk==="bad"?"#b0281d":MAG;
+    x.lineWidth=i===S.sel?lw*2:lw; x.strokeStyle=col; x.strokeRect(b.x,b.y,b.w,b.h);
+    const cx=Math.max(r,b.x), cy=Math.max(r,b.y);
+    x.fillStyle=col; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.fill();
+    x.fillStyle="#ffffff"; x.font=`600 ${Math.round(r*1.1)}px "IBM Plex Mono",monospace`; x.textAlign="center"; x.textBaseline="middle";
+    x.fillText(String(b.n),cx,cy+1);
+  });
+}
+
+/* ================= stage layout ================= */
+let blinkT=null;
+function frame(canvas,caption,cls){
+  const f=document.createElement("div"); f.className="frame"+(cls?" "+cls:"");
+  f.innerHTML=`<span class="cap">${esc(caption)}</span><span class="cm"></span>`; f.prepend(canvas); return f;
+}
+function layout(){
+  const sh=$("sheet"); clearInterval(blinkT); blinkT=null; sh.innerHTML=""; sh.className="sheet m-"+S.mode;
+  $("swipeCtl").hidden=!(S.mode==="swipe"&&slots.A.src&&slots.B.src);
+  if(!slots.A.src||!slots.B.src){
+    sh.className="sheet"; sh.style.width="100%";
+    sh.innerHTML=`<div class="emptystage">เลือกไฟล์ทั้งช่อง A และ B เพื่อเริ่มเทียบ<br><span class="small">${slots.A.src?"มีไฟล์ A แล้ว":slots.B.src?"มีไฟล์ B แล้ว":""}</span></div>`; return;
+  }
+  const W=cA.width, z=S.zoom==="fit"?0:+S.zoom;
+  sh.style.width=z?(S.mode==="side"?(W*z*2+40):W*z)+"px":"100%";
+  if(S.mode==="side"){ sh.append(frame(cA,"A · ต้นฉบับ"),frame(cB,"B · ไฟล์ใหม่")); }
+  else if(S.mode==="diff"){ sh.append(frame(cD,"จุดต่างแสดงบนไฟล์ B")); }
+  else if(S.mode==="swipe"){
+    const st=document.createElement("div"); st.className="stack";
+    const over=document.createElement("div"); over.className="over"; over.appendChild(cA);
+    const line=document.createElement("div"); line.className="swipeline";
+    st.append(cB,over,line); sh.append(frame(st,"ซ้าย A · ขวา B")); applySwipe();
+  }else{
+    const st=document.createElement("div"); st.className="stack";
+    const over=document.createElement("div"); over.className="over"; over.appendChild(cA);
+    st.append(cB,over); const f=frame(st,"กำลังแสดง A"); sh.append(f);
+    let showB=false;
+    blinkT=setInterval(()=>{showB=!showB; st.classList.toggle("blink-b",showB); f.querySelector(".cap").textContent=showB?"กำลังแสดง B":"กำลังแสดง A";},700);
+  }
+}
+function applySwipe(){
+  const p=+$("swipe").value, over=document.querySelector(".stack .over"), line=document.querySelector(".swipeline");
+  if(over) over.style.clipPath=`inset(0 ${100-p}% 0 0)`; if(line) line.style.left=p+"%";
+}
+$("swipe").addEventListener("input",applySwipe);
+$("modeSeg").addEventListener("click",e=>{const b=e.target.closest("button"); if(!b) return; setMode(b.dataset.m);});
+function setMode(m){S.mode=m; document.querySelectorAll("#modeSeg button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.m===m?"true":"false")); layout();}
+let thrT=null;
+$("thr").addEventListener("input",e=>{S.thr=+e.target.value;$("thrV").textContent=S.thr;clearTimeout(thrT);thrT=setTimeout(()=>{if(cA.width&&slots.A.src&&slots.B.src){computeDiff();S.sel=-1;drawDiff();renderRegions();renderImgStats();summary();}},180);});
+["dx","dy"].forEach(k=>$(k).addEventListener("change",e=>{S[k]=Math.round(+e.target.value||0);build();}));
+$("zoom").addEventListener("change",e=>{S.zoom=e.target.value;layout();});
+
+/* ================= regions rail ================= */
+function cropTo(src,b0){
+  const W=src.width,H=src.height, mw=Math.min(W,Math.max(b0.w,260)), mh=Math.min(H,Math.max(b0.h,80));
+  const b={w:mw,h:mh,x:Math.min(Math.max(0,b0.x+b0.w/2-mw/2),W-mw),y:Math.min(Math.max(0,b0.y+b0.h/2-mh/2),H-mh)};
+  const c=document.createElement("canvas"), s=Math.min(1,320/b.w,220/b.h);
+  c.width=Math.max(1,Math.round(b.w*s)); c.height=Math.max(1,Math.round(b.h*s));
+  c.getContext("2d").drawImage(src,b.x,b.y,b.w,b.h,0,0,c.width,c.height); return c;
+}
+function renderRegions(){
+  const L=$("regList");
+  if(!slots.A.src||!slots.B.src){ L.innerHTML=`<p class="railnote">เมื่อมีไฟล์ครบสองช่อง จุดที่ต่างกันจะเรียงอยู่ตรงนี้ พร้อมภาพก่อน-หลังให้กดยืนยันทีละจุด</p>`; $("regSum").textContent=""; return; }
+  if(!S.regions.length){ L.innerHTML=`<p class="railnote">ไม่พบจุดต่างที่ความไวระดับนี้ ลองเพิ่มความไว (เลื่อนแถบไปทางซ้าย) หรือปรับตำแหน่ง B ถ้าภาพเหลื่อมกัน</p>`; $("regSum").textContent="0 จุด"; return; }
+  L.innerHTML="";
+  S.regions.forEach((b,i)=>{
+    const mk=S.marks[i]||"";
+    const el=document.createElement("div"); el.className="reg"+(i===S.sel?" sel":"")+(mk?" k-"+mk:""); el.tabIndex=0; el.dataset.i=i;
+    el.innerHTML=`<span class="n">${b.n}</span><div><div class="crops"><figure><figcaption>A เดิม</figcaption></figure><figure><figcaption>B ใหม่</figcaption></figure></div>
+      <div class="rbtns"><button class="mbtn ok" data-mk="ok" aria-pressed="${mk==="ok"}">ตั้งใจแก้</button><button class="mbtn bad" data-mk="bad" aria-pressed="${mk==="bad"}">ผิดพลาด</button></div></div>`;
+    const fg=el.querySelectorAll("figure"); fg[0].appendChild(cropTo(cA,b)); fg[1].appendChild(cropTo(cB,b));
+    L.appendChild(el);
+  });
+  regSummary();
+}
+function regSummary(){
+  const n=S.regions.length, ok=Object.values(S.marks).filter(v=>v==="ok").length, bad=Object.values(S.marks).filter(v=>v==="bad").length;
+  $("regSum").textContent=`${n} จุด · ยืนยันแล้ว ${ok+bad}`;
+}
+$("regList").addEventListener("click",e=>{
+  const r=e.target.closest(".reg"); if(!r) return; const i=+r.dataset.i;
+  const mb=e.target.closest(".mbtn");
+  if(mb){ S.marks[i]=S.marks[i]===mb.dataset.mk?"":mb.dataset.mk; if(!S.marks[i]) delete S.marks[i];
+    r.className="reg"+(i===S.sel?" sel":"")+(S.marks[i]?" k-"+S.marks[i]:"");
+    r.querySelectorAll(".mbtn").forEach(x=>x.setAttribute("aria-pressed",String(S.marks[i]===x.dataset.mk)));
+    drawDiff(); regSummary(); renderImgStats(); summary(); return; }
+  focusRegion(i);
+});
+$("regList").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.classList.contains("reg")) focusRegion(+e.target.dataset.i);});
+function focusRegion(i){
+  S.sel=i; drawDiff(); if(S.mode!=="diff") setMode("diff");
+  document.querySelectorAll(".reg").forEach(x=>x.classList.toggle("sel",+x.dataset.i===i));
+  const b=S.regions[i], st=$("stage"), sh=$("sheet"), W=cD.width, H=cD.height;
+  requestAnimationFrame(()=>{ const sw=sh.offsetWidth, shh=sh.offsetHeight;
+    st.scrollTo({top:Math.max(0,(b.y/H)*shh-st.clientHeight/3),left:Math.max(0,(b.x/W)*sw-st.clientWidth/3),behavior:"smooth"}); });
+}
+function renderImgStats(){
+  const el=$("imgStats");
+  if(!slots.A.src||!slots.B.src){el.innerHTML="";return;}
+  const n=S.regions.length, bad=Object.values(S.marks).filter(v=>v==="bad").length, ok=Object.values(S.marks).filter(v=>v==="ok").length;
+  el.innerHTML=`<span class="chip ${n?"c-mag":"c-ok"}">พบ <b>${n}</b> บริเวณที่ต่างกัน</span>
+    <span class="chip c-plain">พื้นที่เปลี่ยน <b>${S.pct.toFixed(2)}%</b></span>
+    ${ok?`<span class="chip c-ok">ตั้งใจแก้ <b>${ok}</b></span>`:""}${bad?`<span class="chip c-bad">ผิดพลาด <b>${bad}</b></span>`:""}
+    ${n-ok-bad>0?`<span class="chip c-warn">ยังไม่ยืนยัน <b>${n-ok-bad}</b></span>`:""}`;
+}
+
+/* ================= text compare ================= */
+const dmp=typeof diff_match_patch!=="undefined"?new diff_match_patch():null; if(dmp) dmp.Diff_Timeout=2;
+function normText(t){
+  t=(t||"").normalize("NFC").replace(/[​-‍﻿]/g,"");
+  if($("oAm").checked) t=t.replace(/ํา/g,"ำ");
+  if($("oSpace").checked) t=t.replace(/\s+/g," ").trim();
+  if($("oCase").checked) t=t.toLowerCase();
+  return t;
+}
+const showWS=s=>/^\s+$/.test(s)?s.replace(/ /g,"␣").replace(/\n/g,"↵"):s;
+function runText(){
+  const ra=$("tA").value, rb=$("tB").value;
+  S.am=(rb.match(/ํา/g)||[]).length;
+  $("amWarn").hidden=!S.am;
+  if(S.am) $("amWarn").textContent=`ข้อความ artwork มีสระอำที่พิมพ์แยกเป็น ํ + า จำนวน ${S.am} จุด มักเกิดจากฟอนต์หรือการพิมพ์ใน Illustrator ตรวจว่าบนงานพิมพ์แสดงผลถูกต้อง`;
+  if(!ra.trim()||!rb.trim()||!dmp){
+    $("diffOut").innerHTML=`<span class="muted">${!dmp?"โหลดตัวเทียบข้อความไม่สำเร็จ ลองโหลดหน้าใหม่":"วางข้อความทั้งสองช่องเพื่อเริ่มเทียบ"}</span>`;
+    S.textItems=[]; S.textReady=false; $("chgList").innerHTML=`<p class="railnote">รายการที่ต่างกันจะแสดงตรงนี้ เรียงตามลำดับในข้อความ</p>`; $("txtSum").textContent="";
+    runCheck(); summary(); return;
+  }
+  const a=normText(ra), b=normText(rb), diffs=dmp.diff_main(a,b); dmp.diff_cleanupSemantic(diffs);
+  let html="", items=[], cur=null;
+  diffs.forEach(([op,t],k)=>{
+    if(op===0){ html+=esc(t); if(cur){cur.after=t.slice(0,24);items.push(cur);cur=null;} return; }
+    if(op===-1) html+=`<del>${esc(showWS(t))}</del>`; else html+=`<ins>${esc(showWS(t))}</ins>`;
+    if(!cur){const prev=diffs[k-1]; cur={before:prev&&prev[0]===0?prev[1].slice(-24):"",del:"",ins:"",after:""};}
+    if(op===-1) cur.del+=t; else cur.ins+=t;
+  });
+  if(cur) items.push(cur);
+  $("diffOut").innerHTML=html||'<span class="muted">ไม่มีข้อความ</span>';
+  S.textItems=items; S.textReady=true;
+  $("txtSum").textContent=items.length?items.length+" จุด":"ตรงกันทั้งหมด";
+  $("chgList").innerHTML=items.length?items.map((it,i)=>{
+    const kind=it.del&&it.ins?["เปลี่ยน","c-warn"]:it.del?["ขาดไป","c-bad"]:["เพิ่มมา","c-info"];
+    return `<div class="chg"><div class="k"><span class="chip c-plain num">#${i+1}</span><span class="chip ${kind[1]}">${kind[0]}</span></div>
+      <div class="ctx">…${esc(it.before)}${it.del?`<del>${esc(showWS(it.del))}</del>`:""}${it.ins?`<ins>${esc(showWS(it.ins))}</ins>`:""}${esc(it.after)}…</div></div>`;}).join("")
+    :`<p class="railnote">ข้อความทั้งสองชุดตรงกันตามตัวเลือกที่ตั้งไว้</p>`;
+  runCheck(); summary();
+}
+let txT=null; ["tA","tB"].forEach(k=>$(k).addEventListener("input",()=>{clearTimeout(txT);txT=setTimeout(runText,300);}));
+["oSpace","oAm","oCase"].forEach(k=>$(k).addEventListener("change",runText));
+function syncPdfTextButtons(){ $("fromA").disabled=!slots.A.text; $("fromB").disabled=!slots.B.text; }
+$("fromA").onclick=()=>{$("tA").value=slots.A.text||"";runText();};
+$("fromB").onclick=()=>{$("tB").value=slots.B.text||"";runText();};
+
+/* ================= checklist ================= */
+const ITEMS=[
+ {g:"ข้อความบังคับ",id:"name",t:"ชื่อเครื่องสำอางและชื่อทางการค้า",h:"ตรงกับที่จดแจ้ง ทั้งภาษาไทยและภาษาต่างประเทศ"},
+ {g:"ข้อความบังคับ",id:"type",t:"ประเภทหรือชนิดของเครื่องสำอาง",h:"แสดงเมื่อชื่อสินค้ายังไม่สื่อว่าเป็นผลิตภัณฑ์อะไร เช่น เซรั่มบำรุงผิวหน้า",re:/เซรั่ม|ครีม|โลชั่น|โฟม|สบู่|แชมพู|ครีมนวด|เจล|ลิปสติก|แป้ง|มาสก์|โทนเนอร์|ยาสีฟัน|น้ำหอม|ผลิตภัณฑ์/},
+ {g:"ข้อความบังคับ",id:"ingr",t:"ชื่อส่วนผสมทุกชนิด เรียงจากปริมาณมากไปน้อย",h:"ใช้ชื่อ INCI ตามสูตรที่จดแจ้ง ตรวจลำดับให้ตรงสูตร",re:/ส่วนประกอบ|ส่วนผสม|ingredients?\s*:/i},
+ {g:"ข้อความบังคับ",id:"howto",t:"วิธีใช้",h:"ภาษาไทย อ่านเข้าใจได้",re:/วิธีใช้|วิธีการใช้|how to use|directions/i},
+ {g:"ข้อความบังคับ",id:"maker",t:"ชื่อและที่ตั้งของผู้ผลิต",h:"กรณีนำเข้า ต้องมีชื่อและที่ตั้งผู้นำเข้า พร้อมชื่อผู้ผลิตและประเทศผู้ผลิต",re:/ผลิตโดย|ผู้ผลิต|นำเข้าโดย|ผู้นำเข้า|manufactured by/i},
+ {g:"ข้อความบังคับ",id:"net",t:"ปริมาณสุทธิ",h:"หน่วยเมตริก เช่น มล. / กรัม ตรงกับขนาดบรรจุจริง",re:/ปริมาณสุทธิ|\d+(?:\.\d+)?\s*(?:มล\.?|มิลลิลิตร|กรัม|ก\.|ml\b|g\b|ลิตร)/i},
+ {g:"ข้อความบังคับ",id:"lot",t:"เลขที่แสดงครั้งที่ผลิต (Lot)",h:"มีตำแหน่งหรือพื้นที่ว่างให้พิมพ์ภายหลัง",re:/ครั้งที่ผลิต|\blot\b|batch/i},
+ {g:"ข้อความบังคับ",id:"mfg",t:"เดือน ปี ที่ผลิต",h:"มีข้อความนำหรือพื้นที่ให้พิมพ์",re:/วันที่ผลิต|วันผลิต|เดือนปีที่ผลิต|ผลิตเมื่อ|\bmfg\b|\bmfd\b/i},
+ {g:"ข้อความบังคับ",id:"exp",t:"เดือน ปี ที่หมดอายุ",h:"บังคับเมื่ออายุผลิตภัณฑ์น้อยกว่า 30 เดือน แนะนำให้แสดงทุกครั้ง",re:/หมดอายุ|\bexp\b|ควรใช้ก่อน/i},
+ {g:"ข้อความบังคับ",id:"warn",t:"คำเตือน",h:"ตามประกาศคำเตือน: วัตถุกันเสีย, สารกันแดด, สารควบคุม และคำเตือนทั่วไป (ถ้ามี)",re:/คำเตือน|ข้อควรระวัง|warning|caution/i},
+ {g:"ข้อความบังคับ",id:"notif",t:"เลขที่ใบรับจดแจ้ง",h:"10 หลัก (เดิม) หรือ 13 หลัก ตรงกับใบรับจดแจ้งของสูตรนี้",re:/เลขที่ใบรับจดแจ้ง|เลขจดแจ้ง/},
+ {g:"ข้อความบังคับ",id:"thai",t:"ใช้ภาษาไทย อ่านได้ชัดเจน",h:"ข้อความบังคับต้องมีภาษาไทย ขนาดตัวอักษรอ่านได้ ไม่จมไปกับพื้นหลัง",re:/[ก-ฮ]/},
+ {g:"งานพิมพ์และบรรจุภัณฑ์",id:"barcode",t:"บาร์โค้ดถูกต้องและสแกนได้",h:"เลขตรงกับ SKU, สีเข้มบนพื้นอ่อน, มีขอบว่างรอบแท่ง"},
+ {g:"งานพิมพ์และบรรจุภัณฑ์",id:"dieline",t:"ขนาดตรงกับไดคัท / แบบบรรจุภัณฑ์",h:"มีระยะตัดตก (bleed) และข้อความอยู่ในขอบปลอดภัย"},
+ {g:"งานพิมพ์และบรรจุภัณฑ์",id:"color",t:"สีตรงตามมาตรฐานแบรนด์",h:"เทียบกับเบอร์สี Pantone / ตัวอย่างงานพิมพ์ที่อนุมัติ"},
+ {g:"งานพิมพ์และบรรจุภัณฑ์",id:"claims",t:"ไม่มีคำกล่าวอ้างเกินจริงหรือสรรพคุณทางยา",h:"ดูรายการคำที่ระบบพบในกล่องด้านขวา"}
+];
+const CLAIMS=["รักษา","บำบัด","หายขาด","ถาวร","ทันที","100%","ฉีด","ไม่มีผลข้างเคียง","แพทย์รับรอง","อย.รับรอง","อย. รับรอง","ปลอดภัย 100","สลายไขมัน","ลดน้ำหนัก","เพิ่มขนาด","ฆ่าเชื้อ","ลดการอักเสบ","รักษาสิว","รักษาฝ้า","ขาวขึ้นใน","เห็นผลใน","ผลัดเซลล์ผิวลึก"];
+try{S.check=JSON.parse(localStorage.getItem("bcl-awqc-check")||"{}")}catch(_){S.check={}}
+function saveCheckDraft(){try{localStorage.setItem("bcl-awqc-check",JSON.stringify(S.check))}catch(_){}}
+function snippet(t,i,len){const a=Math.max(0,i-14),b=Math.min(t.length,i+len+26);return (a>0?"…":"")+t.slice(a,b).replace(/\s+/g," ")+(b<t.length?"…":"");}
+function detect(it,text){
+  if(!it.re) return null;
+  if(!text.trim()) return {k:"none"};
+  const m=it.re.exec(text);
+  if(it.id==="notif"){
+    const num=/(\d{2})\s*-\s*(\d)\s*-\s*(\d{2}\s*-\s*\d{5}|\d{10})/.exec(text);
+    if(num) return {k:"found",s:snippet(text,num.index,num[0].length),x:"รูปแบบเลข "+(num[3].replace(/\D/g,"").length===10?"13 หลัก":"10 หลัก")};
+    if(m) return {k:"partial",s:snippet(text,m.index,m[0].length),x:"พบคำนำ แต่ไม่พบเลขรูปแบบ 10/13 หลัก"};
+    return {k:"missing"};
+  }
+  if(it.id==="thai") return m?{k:"found",x:"มีอักษรไทยในข้อความ"}:{k:"missing"};
+  return m?{k:"found",s:snippet(text,m.index,m[0].length)}:{k:"missing"};
+}
+function runCheck(){
+  const text=$("tB").value||"";
+  let g="", html="";
+  ITEMS.forEach(it=>{
+    if(it.g!==g){g=it.g;html+=`<div class="grp">${esc(g)}</div>`;}
+    const c=S.check[it.id]||{}, s=c.s||"", d=detect(it,text);
+    let auto="";
+    const ai=S.ai&&S.ai.map[it.id];
+    if(ai){ const L={pass:["AI: ผ่าน","c-ok"],fail:["AI: ไม่ผ่าน","c-bad"],unclear:["AI: อ่านไม่ชัด","c-warn"],na:["AI: ไม่เกี่ยว","c-plain"]}[ai.status]||["AI","c-plain"];
+      auto+=`<span class="chip ${L[1]}">${L[0]}</span>${c.ai&&c.s?'<span class="chip c-dash">AI กรอกให้ รอยืนยัน</span>':""}<span class="aiev">${esc([ai.evidence,ai.comment].filter(Boolean).join(" · "))}</span>`;
+      if(d) auto+='<span style="flex-basis:100%;height:0"></span>'; }
+    if(d){
+      if(d.k==="found") auto+=`<span class="chip c-ok">พบในข้อความ</span>${d.x?`<span class="chip c-plain">${esc(d.x)}</span>`:""}${d.s?`<span class="snip">${esc(d.s)}</span>`:""}`;
+      else if(d.k==="partial") auto+=`<span class="chip c-warn">${esc(d.x)}</span><span class="snip">${esc(d.s)}</span>`;
+      else if(d.k==="missing") auto+=`<span class="chip c-warn">ไม่พบในข้อความ artwork</span><span class="snip">อาจอยู่ในส่วนที่เป็นรูปภาพ ตรวจบนไฟล์จริง</span>`;
+      else auto+=`<span class="chip c-dash">ยังไม่มีข้อความ artwork ให้ค้น</span>`;
+    }
+    html+=`<div class="ck ${s?"s-"+s:""}" data-id="${it.id}">
+      <div><div class="t">${esc(it.t)}</div><div class="h">${esc(it.h)}</div></div>
+      <div class="tri" role="group" aria-label="ผลตรวจ ${esc(it.t)}">
+        <button class="p" data-s="pass" aria-pressed="${s==="pass"}">ผ่าน</button><button class="f" data-s="fail" aria-pressed="${s==="fail"}">ไม่ผ่าน</button><button class="n" data-s="na" aria-pressed="${s==="na"}">ไม่เกี่ยว</button></div>
+      ${auto?`<div class="auto">${auto}</div>`:""}
+      <div class="note"><input class="inp" id="nt-${it.id}" placeholder="บันทึกเพิ่มเติม" value="${esc(c.note||"")}"></div></div>`;
+  });
+  const active=document.activeElement&&document.activeElement.id; const pos=active&&active.startsWith("nt-")?document.activeElement.selectionStart:null;
+  $("ckList").innerHTML=html;
+  if(pos!=null&&$(active)){$(active).focus();try{$(active).setSelectionRange(pos,pos)}catch(_){}}
+  // claims
+  const low=text.toLowerCase(); S.claims=[];
+  CLAIMS.forEach(w=>{const i=low.indexOf(w.toLowerCase()); if(i>=0) S.claims.push({w,s:snippet(text,i,w.length)});});
+  $("claimBox").innerHTML=!text.trim()?`<p class="msg">ใส่ข้อความ artwork ในแท็บเทียบข้อความ ระบบจะหาคำที่มักโดน อย. ทักให้</p>`
+    :S.claims.length?S.claims.map(c=>`<div><span class="chip c-mag">${esc(c.w)}</span> <span class="snip small muted">${esc(c.s)}</span></div>`).join("")+`<p class="msg">คำเหล่านี้ไม่ได้ผิดเสมอไป แต่ควรเทียบกับคู่มือโฆษณาเครื่องสำอางของ อย. ก่อนอนุมัติ</p>`
+    :`<p class="msg good">ไม่พบคำที่อยู่ในรายการเฝ้าระวัง</p>`;
+  ckSummary();
+}
+function ckCounts(){const c={pass:0,fail:0,na:0,unset:0};ITEMS.forEach(it=>{const s=(S.check[it.id]||{}).s;c[s||"unset"]++;});return c;}
+function ckSummary(){
+  const c=ckCounts(), n=ITEMS.length, done=n-c.unset;
+  $("ckPct").textContent=`ตรวจแล้ว ${done}/${n}`;
+  $("ckMeter").innerHTML=`<i style="width:${c.pass/n*100}%;background:var(--ok)"></i><i style="width:${c.fail/n*100}%;background:var(--bad)"></i><i style="width:${c.na/n*100}%;background:var(--muted)"></i>`;
+  $("ckStats").innerHTML=`<span class="chip c-ok">ผ่าน <b>${c.pass}</b></span><span class="chip c-bad">ไม่ผ่าน <b>${c.fail}</b></span><span class="chip c-plain">ไม่เกี่ยว <b>${c.na}</b></span><span class="chip c-warn">ยังไม่ตรวจ <b>${c.unset}</b></span>`;
+  summary();
+}
+$("ckList").addEventListener("click",e=>{
+  const b=e.target.closest(".tri button"); if(!b) return; const row=b.closest(".ck"), id=row.dataset.id;
+  const c=S.check[id]||(S.check[id]={}); c.s=c.s===b.dataset.s?"":b.dataset.s; c.ai=false;
+  row.className="ck"+(c.s?" s-"+c.s:""); row.querySelectorAll(".tri button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.s===c.s)));
+  saveCheckDraft(); runCheck();
+});
+$("ckList").addEventListener("input",e=>{ if(!e.target.id.startsWith("nt-")) return; const id=e.target.id.slice(3); (S.check[id]||(S.check[id]={})).note=e.target.value; saveCheckDraft(); });
+$("ckReset").onclick=()=>{S.check={};saveCheckDraft();runCheck();};
+
+/* ================= header verdict + tab counts ================= */
+function summary(){
+  const hasImg=slots.A.src&&slots.B.src, n=S.regions.length, bad=Object.values(S.marks).filter(v=>v==="bad").length, unset=n-Object.keys(S.marks).length;
+  const c=ckCounts();
+  const ci=$("cntImage"); ci.textContent=hasImg?n:"–"; ci.className="cnt"+(hasImg?(n?" hot":" good"):"");
+  const ct=$("cntText"); ct.textContent=S.textReady?S.textItems.length:"–"; ct.className="cnt"+(S.textReady?(S.textItems.length?" hot":" good"):"");
+  const cc=$("cntCheck"); cc.textContent=`${ITEMS.length-c.unset}/${ITEMS.length}`; cc.className="cnt"+(c.fail?" hot":c.unset?"":" good");
+  const v=[];
+  if(hasImg) v.push(bad?`<span class="chip c-bad">ภาพผิดพลาด <b>${bad}</b></span>`:unset>0?`<span class="chip c-mag">ภาพต่าง <b>${n}</b> จุด รอยืนยัน <b>${unset}</b></span>`:`<span class="chip c-ok">ภาพ ยืนยันครบ</span>`);
+  if(S.textReady) v.push(S.textItems.length?`<span class="chip c-mag">ข้อความต่าง <b>${S.textItems.length}</b></span>`:`<span class="chip c-ok">ข้อความตรงกัน</span>`);
+  v.push(c.fail?`<span class="chip c-bad">Checklist ไม่ผ่าน <b>${c.fail}</b></span>`:c.unset?`<span class="chip c-warn">Checklist เหลือ <b>${c.unset}</b></span>`:`<span class="chip c-ok">Checklist ครบ</span>`);
+  if(S.ai){ const hi=S.ai.issues.filter(i=>i.severity==="high").length; v.unshift(S.ai.issues.length?`<span class="chip ${hi?"c-bad":"c-warn"}">AI พบปัญหา <b>${S.ai.issues.length}</b>${hi?` (สำคัญ <b>${hi}</b>)`:""}</span>`:`<span class="chip c-ok">AI ไม่พบปัญหา</span>`); }
+  const ca=$("cntAi"); ca.textContent=S.ai?S.ai.issues.length:"–"; ca.className="cnt"+(S.ai?(S.ai.issues.length?" hot":" good"):"");
+  if(S.claims.length) v.push(`<span class="chip c-mag">คำควรทบทวน <b>${S.claims.length}</b></span>`);
+  $("verdict").innerHTML=v.join("");
+}
+
+/* ================= history store ================= */
+let db=null, col=null, uid=null, unsub=null;
+const LSH="bcl-awqc-history";
+function lsHist(){try{return JSON.parse(localStorage.getItem(LSH)||"[]")}catch(_){return []}}
+function lsHistSave(){try{localStorage.setItem(LSH,JSON.stringify(S.hist))}catch(_){$("storeNote").textContent="เบราว์เซอร์นี้เก็บข้อมูลไม่ได้"}}
+const ST={pending:["รออนุมัติ","c-info"],fix:["ต้องแก้ไข","c-warn"],approved:["อนุมัติแล้ว","c-ok"],rejected:["ไม่อนุมัติ","c-bad"]};
+async function initStore(){
+  S.hist=lsHist(); renderHist();
+  $("storeNote").textContent="กำลังเชื่อมต่อที่เก็บประวัติ…";
+  try{ db=window.claude&&window.claude.use?await window.claude.use("db"):null; }catch(_){db=null}
+  try{ const u=window.claude&&window.claude.use?await window.claude.use("user"):null; uid=u?await u.id():null; }catch(_){uid=null}
+  if(!db){ $("storeNote").textContent="ประวัติเก็บไว้ในเบราว์เซอร์นี้เท่านั้น"; return; }
+  col=db.collection("reviews");
+  unsub=col.orderBy("createdAt","desc").limit(500).onSnapshot(snap=>{
+    S.hist=snap.docs.map(d=>Object.assign({id:d.id},d.data()));
+    $("storeNote").textContent="ประวัติการตรวจบันทึกออนไลน์ ทีมที่เปิดหน้านี้เห็นข้อมูลเดียวกัน";
+    renderHist();
+  },err=>{$("storeNote").textContent="เชื่อมต่อที่เก็บประวัติไม่ได้ ("+err.code+") ลองโหลดหน้าใหม่";});
+}
+async function putRec(r){ if(col){const {id,...b}=r; await col.doc(id).set(b);} else {S.hist.unshift(r); lsHistSave(); renderHist();} }
+async function patchRec(id,p){ if(col){await col.doc(id).update(p);} else {Object.assign(S.hist.find(x=>x.id===id),p); lsHistSave(); renderHist();} }
+async function delRec(id){ if(col){await col.doc(id).delete();} else {S.hist=S.hist.filter(x=>x.id!==id); lsHistSave(); renderHist();} }
+function thumb(c){ if(!c||!c.width) return null; const t=document.createElement("canvas"), s=Math.min(1,420/c.width); t.width=Math.round(c.width*s); t.height=Math.round(c.height*s);
+  const x=t.getContext("2d"); x.fillStyle="#ffffff"; x.fillRect(0,0,t.width,t.height); x.drawImage(c,0,0,t.width,t.height); return t.toDataURL("image/jpeg",0.72); }
+
+function renderSavePreview(){
+  const hasImg=slots.A.src&&slots.B.src, c=ckCounts();
+  $("savePreview").innerHTML=`<dt>สินค้า</dt><dd>${esc($("jProduct").value||"— ยังไม่ได้กรอกด้านบน —")}</dd>
+    <dt>ไฟล์</dt><dd>${hasImg?esc((slots.A.name||"A")+" → "+(slots.B.name||"B")):"ยังไม่ได้เทียบภาพ"}</dd>
+    <dt>ภาพ</dt><dd>${hasImg?S.regions.length+" จุดต่าง":"—"}</dd>
+    <dt>ข้อความ</dt><dd>${S.textReady?S.textItems.length+" จุดต่าง":"—"}</dd>
+    <dt>Checklist</dt><dd>ผ่าน ${c.pass} · ไม่ผ่าน ${c.fail} · ยังไม่ตรวจ ${c.unset}</dd>
+    <dt>AI</dt><dd>${S.ai?(VERD[S.ai.verdict]||["—"])[0]+" · "+S.ai.issues.length+" ปัญหา":"ยังไม่ได้ให้ AI ตรวจ"}</dd>`;
+}
+$("saveForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const msg=$("saveMsg"); msg.className="msg";
+  const product=$("jProduct").value.trim(), rv=$("rvName").value.trim();
+  if(!product){msg.className="msg err";msg.textContent="กรอกชื่อสินค้าที่แถบด้านบนก่อนบันทึก";$("jProduct").focus();return;}
+  if(!rv){msg.className="msg err";msg.textContent="กรอกชื่อผู้ตรวจ";$("rvName").focus();return;}
+  try{localStorage.setItem("bcl-awqc-reviewer",rv)}catch(_){}
+  const hasImg=!!(slots.A.src&&slots.B.src), c=ckCounts(), result=$("rvResult").value, now=Date.now();
+  const marks=S.regions.map((_,i)=>S.marks[i]||"");
+  const r={id:"r"+now.toString(36)+Math.random().toString(36).slice(2,6),
+    product,sku:$("jSku").value.trim(),brand:$("jBrand").value.trim(),part:$("jPart").value,version:$("jVer").value.trim(),
+    reviewer:rv,status:result,note:$("rvNote").value.trim(),createdAt:now,createdBy:uid||"",
+    sample:!!(slots.A.sample||slots.B.sample),
+    img:hasImg?{a:slots.A.name||"",b:slots.B.name||"",regions:S.regions.length,pct:+S.pct.toFixed(2),ok:marks.filter(m=>m==="ok").length,bad:marks.filter(m=>m==="bad").length,thr:S.thr}:null,
+    thumbB:hasImg?thumb(cB):(slots.B.src?thumb(slots.B.src):null), thumbD:hasImg&&S.regions.length?thumb(cD):null,
+    thumbAI:S.ai&&S.ai.issues.some(i=>i.box)?thumb($("aiCv")):null,
+    ai:S.ai?{verdict:S.ai.verdict,summary:String(S.ai.summary||"").slice(0,600),file:S.ai.file,at:S.ai.at,
+      issues:S.ai.issues.slice(0,25).map(i=>({s:i.severity,c:String(i.category||"").slice(0,40),w:String(i.where||"").slice(0,120),f:String(i.found||"").slice(0,160),e:String(i.expected||"").slice(0,160),x:String(i.fix||"").slice(0,200)}))}:null,
+    text:S.textReady?{count:S.textItems.length,items:S.textItems.slice(0,30).map(t=>({d:t.del.slice(0,80),i:t.ins.slice(0,80),b:t.before.slice(-16)}))}:null,
+    check:{pass:c.pass,fail:c.fail,na:c.na,unset:c.unset,
+      fails:ITEMS.filter(it=>(S.check[it.id]||{}).s==="fail").map(it=>({t:it.t,n:(S.check[it.id].note||"").slice(0,200)}))},
+    claims:S.claims.map(x=>x.w),
+    log:[{a:result==="fix"?"ตรวจแล้ว ต้องแก้ไข":"ตรวจแล้ว ส่งรออนุมัติ",by:rv,at:now,note:$("rvNote").value.trim()}]};
+  $("saveBtn").disabled=true; msg.textContent="กำลังบันทึก…";
+  try{ await putRec(r); msg.className="msg good"; msg.textContent="บันทึกแล้ว รายการอยู่ด้านซ้าย"; $("rvNote").value=""; S.openId=r.id; renderHist(); }
+  catch(err){ msg.className="msg err"; msg.textContent=err&&err.code==="invalid_argument"?"บัญชีนี้มีสิทธิ์ดูอย่างเดียว บันทึกไม่ได้":err&&err.code==="quota_exceeded"?"พื้นที่เก็บประวัติเต็ม ลบรายการเก่าก่อน":"บันทึกไม่สำเร็จ ลองอีกครั้ง"; }
+  $("saveBtn").disabled=false;
+});
+
+function renderHist(){
+  const q=S.hSearch.trim().toLowerCase();
+  const rows=S.hist.filter(r=>(S.hFilter==="all"||r.status===S.hFilter)&&(!q||[r.product,r.sku,r.brand,r.version,r.reviewer].join(" ").toLowerCase().includes(q)));
+  const pend=S.hist.filter(r=>r.status==="pending").length;
+  const ch=$("cntHist"); ch.textContent=S.hist.length?(pend?pend+" รอ":S.hist.length):"0"; ch.className="cnt"+(pend?" hot":"");
+  const L=$("hList");
+  if(!S.hist.length){ L.innerHTML=`<div class="emptyh"><strong>ยังไม่มีประวัติการตรวจ</strong><span>ตรวจภาพ ข้อความ และ Checklist ให้ครบ แล้วกด "บันทึกผลตรวจ" ด้านขวา<br>รายการจะเก็บไว้พร้อมภาพย่อและสถานะการอนุมัติ</span></div>`; return; }
+  if(!rows.length){ L.innerHTML=`<div class="emptyh">ไม่มีรายการที่ตรงกับตัวกรอง</div>`; return; }
+  L.innerHTML=rows.map(r=>{
+    const st=ST[r.status]||["—","c-plain"];
+    const tags=[r.sku,r.part,r.version].filter(Boolean).map(esc).join(" · ");
+    const img=r.img, t=r.text, c=r.check||{};
+    const draft=S.approverDraft[r.id]??(r.approver||"");
+    return `<details class="hitem" data-id="${r.id}"${S.openId===r.id?" open":""}>
+      <summary>${r.thumbB?`<img class="thumb" src="${r.thumbB}" alt="">`:`<span class="thumb none">ไม่มีภาพ</span>`}
+        <div><div class="htitle">${esc(r.product)} ${r.sample?'<span class="chip c-dash">ตัวอย่าง</span>':""}</div>
+          <div class="hsub">${tags||"&nbsp;"}${r.brand?" · "+esc(r.brand):""}</div>
+          <div class="hsub">ตรวจโดย ${esc(r.reviewer)} · ${fmtDT(r.createdAt)}</div></div>
+        <div class="hright"><span class="chip ${st[1]}">${st[0]}</span>
+          <span class="small muted num">${img?"ภาพ "+img.regions:""}${t?" · ข้อความ "+t.count:""}${c.fail?" · ไม่ผ่าน "+c.fail:""}</span></div>
+      </summary>
+      <div class="hbody">
+        <div class="col">
+          ${r.thumbD?`<figure style="margin:0"><img src="${r.thumbD}" alt="จุดต่างที่ไฮไลต์บนไฟล์ใหม่"><figcaption class="msg">จุดต่างบนไฟล์ใหม่</figcaption></figure>`:r.thumbB?`<img src="${r.thumbB}" alt="ไฟล์ใหม่">`:""}
+          <dl class="kv">
+            ${img?`<dt>ไฟล์</dt><dd>${esc(img.a)} → ${esc(img.b)}</dd><dt>ภาพ</dt><dd>${img.regions} จุด (${img.pct}%) · ตั้งใจแก้ ${img.ok} · ผิดพลาด ${img.bad}</dd>`:""}
+            ${t?`<dt>ข้อความ</dt><dd>${t.count?t.count+" จุดต่าง":"ตรงกัน"}</dd>`:""}
+            <dt>Checklist</dt><dd>ผ่าน ${c.pass||0} · ไม่ผ่าน ${c.fail||0} · ไม่เกี่ยว ${c.na||0} · ยังไม่ตรวจ ${c.unset||0}</dd>
+            ${(c.fails||[]).length?`<dt>ไม่ผ่าน</dt><dd>${c.fails.map(f=>esc(f.t)+(f.n?" ("+esc(f.n)+")":"")).join("<br>")}</dd>`:""}
+            ${r.ai?`<dt>AI</dt><dd>${esc((VERD[r.ai.verdict]||["—"])[0])} · ${r.ai.issues.length} ปัญหา<br><span class="muted">${esc(r.ai.summary)}</span></dd>`:""}
+            ${(r.claims||[]).length?`<dt>คำควรทบทวน</dt><dd>${r.claims.map(esc).join(", ")}</dd>`:""}
+            ${r.note?`<dt>หมายเหตุ</dt><dd>${esc(r.note)}</dd>`:""}
+          </dl>
+        </div>
+        <div class="col">
+          ${r.thumbAI?`<figure style="margin:0"><img src="${r.thumbAI}" alt="ตำแหน่งปัญหาที่ AI พบ"><figcaption class="msg">ตำแหน่งปัญหาที่ AI พบ</figcaption></figure>`:""}
+          ${r.ai&&r.ai.issues.length?`<div><div class="lbl">ปัญหาที่ AI พบ</div><div class="small">${r.ai.issues.slice(0,10).map((x,k)=>`<div class="ctx"><b>${k+1}.</b> ${esc(x.c)}${x.w?" · "+esc(x.w):""}${x.f?` <del>${esc(x.f)}</del>`:""}${x.e?` <ins>${esc(x.e)}</ins>`:""}</div>`).join("")}</div></div>`:""}
+          ${t&&t.items&&t.items.length?`<div><div class="lbl">ข้อความที่ต่าง</div><div class="small">${t.items.slice(0,8).map(x=>`<div class="ctx">…${esc(x.b)}${x.d?`<del>${esc(x.d)}</del>`:""}${x.i?`<ins>${esc(x.i)}</ins>`:""}…</div>`).join("")}</div></div>`:""}
+          <div><div class="lbl">ลำดับการดำเนินการ</div><ul class="log">${(r.log||[]).map(l=>`<li><span class="dot"></span><span><b>${esc(l.a)}</b> · ${esc(l.by)} · <span class="muted">${fmtDT(l.at)}</span>${l.note?`<br><span class="muted">${esc(l.note)}</span>`:""}</span></li>`).join("")}</ul></div>
+          <div class="approve">
+            <input class="inp" data-act="who" placeholder="ชื่อผู้อนุมัติ / ผู้ดำเนินการ" value="${esc(draft)}" aria-label="ชื่อผู้อนุมัติ">
+            <button class="btn primary" data-act="approved">อนุมัติพิมพ์</button>
+            <button class="btn" data-act="fix">ส่งกลับแก้ไข</button>
+            <button class="btn" data-act="rejected">ไม่อนุมัติ</button>
+            ${S.confirmDel===r.id?`<span class="msg">ลบรายการนี้?</span><button class="link danger" data-act="del-yes">ยืนยันลบ</button><button class="link" data-act="del-no">ไม่ลบ</button>`:`<button class="link danger" data-act="del">ลบ</button>`}
+            <span class="msg" data-act="m"></span>
+          </div>
+        </div>
+      </div></details>`;}).join("");
+}
+$("hList").addEventListener("toggle",e=>{const d=e.target; if(d.classList&&d.classList.contains("hitem")){ if(d.open) S.openId=d.dataset.id; else if(S.openId===d.dataset.id) S.openId=null; }},true);
+$("hList").addEventListener("input",e=>{ if(e.target.dataset.act==="who"){ S.approverDraft[e.target.closest(".hitem").dataset.id]=e.target.value; }});
+$("hList").addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-act]"); if(!b) return;
+  const box=b.closest(".hitem"), id=box.dataset.id, r=S.hist.find(x=>x.id===id); if(!r) return;
+  const act=b.dataset.act, m=box.querySelector('[data-act="m"]');
+  if(act==="del"){S.confirmDel=id;renderHist();return;}
+  if(act==="del-no"){S.confirmDel=null;renderHist();return;}
+  if(act==="del-yes"){S.confirmDel=null; try{await delRec(id)}catch(_){m.className="msg err";m.textContent="ลบไม่สำเร็จ";} return;}
+  const who=box.querySelector('[data-act="who"]').value.trim();
+  if(!who){m.className="msg err";m.textContent="กรอกชื่อผู้ดำเนินการก่อน";box.querySelector('[data-act="who"]').focus();return;}
+  const label={approved:"อนุมัติพิมพ์",fix:"ส่งกลับแก้ไข",rejected:"ไม่อนุมัติ"}[act];
+  const now=Date.now(), p={status:act,log:[...(r.log||[]),{a:label,by:who,at:now,note:""}]};
+  if(act==="approved"){p.approver=who;p.approvedAt=now;}
+  try{ await patchRec(id,p); delete S.approverDraft[id]; S.openId=id; }
+  catch(err){m.className="msg err";m.textContent=err&&err.code==="invalid_argument"?"บัญชีนี้มีสิทธิ์ดูอย่างเดียว":"บันทึกไม่สำเร็จ ลองอีกครั้ง";}
+});
+$("hSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.hFilter=b.dataset.s;document.querySelectorAll("#hSeg button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderHist();});
+$("hSearch").addEventListener("input",e=>{S.hSearch=e.target.value;renderHist();});
+
+/* ================= AI audit (Claude reads the artwork) ================= */
+const VERD={ready:["พร้อมส่งอนุมัติ","ready","c-ok"],fix:["ต้องแก้ไขก่อนพิมพ์","fix","c-warn"],reject:["มีปัญหาร้ายแรง ห้ามพิมพ์","reject","c-bad"]};
+const SEV={high:["สำคัญ","c-bad","#b0281d"],medium:["ควรแก้","c-warn","#b7791f"],low:["ข้อเสนอแนะ","c-info","#1748c4"]};
+let sampleFn=null, imgCap=null, aiCtl=null, aiTimer=null; S.ai=null; S.aiSel=-1;
+const aiCv=document.createElement("canvas"); aiCv.id="aiCv"; const aiCvA=document.createElement("canvas");
+let apiBase="", apiToken="";
+try { $("apiUrl").value=localStorage.getItem("bcl-api-url")||(!location.hostname.endsWith("github.io")&&location.protocol!=="file:"?location.origin:""); } catch(_) {}
+async function initAI(){
+  sampleFn=null; imgCap=null; aiAvail("กำลังเชื่อมต่อเซิร์ฟเวอร์ OpenAI…");
+  try {
+    const url=new URL($("apiUrl").value.trim());
+    if(url.protocol!=="https:" && !(url.protocol==="http:"&&["localhost","127.0.0.1"].includes(url.hostname))) throw Error("กรอก URL เซิร์ฟเวอร์ HTTPS");
+    if(url.username||url.password||url.search||url.hash||url.pathname!=="/") throw Error("ใช้ URL หลักของเซิร์ฟเวอร์ เช่น https://your-project.vercel.app");
+    apiBase=url.origin; apiToken=$("apiAccess").value;
+    const response=await fetch(apiBase+"/api/audit",{signal:AbortSignal.timeout(10000)});
+    const config=await response.json();
+    if(!response.ok||!config.configured) throw Error("เซิร์ฟเวอร์ยังไม่ได้ตั้ง OPENAI_API_KEY และ APP_ACCESS_TOKEN");
+    $("apiConnection").textContent="เซิร์ฟเวอร์พร้อม · ใส่รหัสเข้าใช้ก่อนกดตรวจ · "+config.model;
+    try { localStorage.setItem("bcl-api-url",apiBase); } catch(_) {}
+    imgCap={maxCount:6}; sampleFn={json:openaiAudit}; aiAvail();
+  } catch(e) { $("apiConnection").textContent=e.message||"เชื่อมต่อไม่ได้"; aiAvail("ตั้งค่าเซิร์ฟเวอร์ OpenAI ด้านบน แล้วกดเชื่อมต่อ"); }
+}
+$("apiConnect").onclick=initAI;
+$("apiUrl").addEventListener("input",()=>{sampleFn=null;imgCap=null;aiAvail("URL เปลี่ยนแล้ว กรุณากดเชื่อมต่อ");});
+async function openaiAudit(prompt,options){
+  apiToken=$("apiAccess").value;
+  if(!apiToken) throw Error("กรอกรหัสเข้าใช้ AI ด้านบนก่อนตรวจ");
+  const images=await Promise.all(options.images.map(blob=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(Error("อ่านภาพไม่ได้"));r.readAsDataURL(blob);})));
+  const payload=JSON.stringify({prompt,images,depth:options.modelTier});
+  if(new Blob([payload]).size>4000000) throw Error("ภาพรวมใหญ่เกิน 4 MB กรุณาลดขนาดไฟล์");
+  const response=await fetch(apiBase+"/api/audit",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+apiToken},body:payload,signal:options.signal});
+  const result=await response.json();
+  if(!response.ok) throw Error(result.error||"ตรวจไม่สำเร็จ");
+  return result;
+}
+function aiAvail(msg){
+  if(aiCtl) return;
+  $("aiRun").disabled=!sampleFn||!imgCap||!slots.B.src;
+  $("aiStatus").className="aistatus"+(!sampleFn?" err":"");
+  $("aiStatus").textContent=msg||(!sampleFn?"ยังไม่ได้เชื่อมต่อเซิร์ฟเวอร์ OpenAI":slots.B.src?"พร้อมตรวจด้วย OpenAI · ภาพจะส่งเมื่อกดปุ่มตรวจ":"เลือกไฟล์ artwork ก่อน");
+}
+const toBlob=src=>new Promise((resolve,reject)=>{const scale=Math.min(1,1800/Math.max(src.width,src.height));const c=document.createElement("canvas");c.width=Math.max(1,Math.round(src.width*scale));c.height=Math.max(1,Math.round(src.height*scale));c.getContext("2d").drawImage(src,0,0,c.width,c.height);c.toBlob(b=>b?resolve(b):reject(Error("แปลงภาพไม่ได้")),"image/jpeg",0.85);});
+function sub(src,x,y,w,h){const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(src,x,y,w,h,0,0,w,h);return c;}
+async function aiImages(){
+  const B=slots.B.src, max=imgCap.maxCount||1, imgs=[await toBlob(B)], desc=["ภาพที่ 1: artwork ใหม่ทั้งชิ้น (ใช้ภาพนี้เป็นกรอบพิกัด box)"];
+  if(max>=5&&B.width>=700){
+    const fw=0.56, w=Math.round(B.width*fw), h=Math.round(B.height*fw);
+    for(const [px,py] of [[0,0],[1,0],[0,1],[1,1]]){
+      const x=px?B.width-w:0, y=py?B.height-h:0;
+      imgs.push(await toBlob(sub(B,x,y,w,h)));
+      desc.push(`ภาพที่ ${imgs.length}: ภาพขยายของภาพที่ 1 ช่วง x ${Math.round(x/B.width*100)}–${Math.round((x+w)/B.width*100)}% , y ${Math.round(y/B.height*100)}–${Math.round((y+h)/B.height*100)}% (ใช้อ่านตัวอักษรเล็ก)`);
+    }
+  }
+  if(slots.A.src&&imgs.length<max&&!(slots.A.sample&&!slots.B.sample)){ imgs.push(await toBlob(slots.A.src)); desc.push(`ภาพที่ ${imgs.length}: artwork เวอร์ชันเดิมที่อนุมัติแล้ว ใช้เทียบเท่านั้น ไม่ต้องตรวจ checklist ของภาพนี้`); }
+  return {imgs,desc};
+}
+function masterText(){
+  const a=$("tA").value.trim();
+  if(!a) return "";
+  if(a===sampleText("A")&&!slots.B.sample) return "";
+  return a.slice(0,8000);
+}
+function aiPrompt(desc){
+  const m=masterText();
+  return `คุณเป็นผู้ตรวจ artwork ฉลากเครื่องสำอางฝ่าย QA/Regulatory ของโรงงานผลิตเครื่องสำอางในประเทศไทย ตรวจภาพที่แนบมาอย่างละเอียดและเข้มงวด เหมือนตรวจก่อนสั่งพิมพ์จริง
+
+ภาพที่แนบ:
+${desc.join("\n")}
+
+ข้อมูลงาน: สินค้า "${$("jProduct").value||"-"}" · SKU "${$("jSku").value||"-"}" · แบรนด์ "${$("jBrand").value||"-"}" · ชิ้นงาน "${$("jPart").value}" · เวอร์ชัน "${$("jVer").value||"-"}"
+${m?`ข้อความต้นฉบับที่อนุมัติ/จดแจ้งไว้ (ใช้เป็นข้อความที่ถูกต้อง):\n"""\n${m}\n"""`:"ไม่มีข้อความต้นฉบับให้เทียบ"}
+
+งานที่ต้องทำ:
+1. ถอดข้อความทั้งหมดบน artwork ตามที่เห็นจริงทุกตัวอักษร รวมคำที่สะกดผิด เรียงจากบนลงล่าง ซ้ายไปขวา
+2. ตรวจข้อความบังคับตามประกาศคณะกรรมการเครื่องสำอาง เรื่อง ฉลากของเครื่องสำอาง พ.ศ. 2562 ตามรายการ checklist ด้านล่าง (ข้อความบังคับต้องมีภาษาไทย อ่านได้ชัด; เลขที่ใบรับจดแจ้ง 10 หลักรูปแบบ xx-x-xx-xxxxx หรือ 13 หลักรูปแบบ xx-x-xxxxxxxxxx; ถ้ามีกรอบหรือข้อความนำสำหรับพิมพ์ Lot/วันผลิต/วันหมดอายุภายหลัง ให้ถือว่าผ่าน)
+3. หาคำสะกดผิด ทั้งไทยและอังกฤษ รวมชื่อ INCI ของส่วนผสม วรรณยุกต์ สระ (เช่น สระอำ) ตัวเลข และหน่วย
+4. หาคำกล่าวอ้างที่เครื่องสำอางใช้ไม่ได้ ได้แก่ สรรพคุณทางยา (รักษา บำบัด ป้องกันโรค) คำเกินจริง (ถาวร ทันที 100% ไม่มีผลข้างเคียง) และคำที่ทำให้เข้าใจว่าเปลี่ยนโครงสร้างร่างกาย
+5. ${m?"เทียบกับข้อความต้นฉบับทุกจุด: ชื่อ ปริมาณสุทธิ ลำดับและชื่อส่วนผสม วิธีใช้ คำเตือน ผู้ผลิต เลขจดแจ้ง รายงานทุกจุดที่ไม่ตรง":"ไม่มีต้นฉบับ ข้ามข้อนี้"}
+6. ${desc.some(d=>d.includes("เวอร์ชันเดิม"))?"เทียบกับ artwork เวอร์ชันเดิม รายงานจุดที่เปลี่ยนซึ่งน่าจะผิดพลาด (ตัวเลข ข้อความที่หายไป)":"ไม่มี artwork เดิม ข้ามข้อนี้"}
+7. ด้านงานพิมพ์ที่เห็นได้จากภาพ: ตัวอักษรเล็กเกินอ่าน สีตัวอักษรกลืนพื้น ข้อความชิดขอบเสี่ยงโดนตัด บาร์โค้ดเสียหรือถูกบัง
+
+กฎ:
+- รายงานเฉพาะสิ่งที่เห็นในภาพจริง ถ้าอ่านไม่ชัดให้ใช้ status "unclear" และบอกว่าไม่ชัดตรงไหน ห้ามเดา
+- found คือข้อความตามที่เห็นบนภาพ expected คือสิ่งที่ควรเป็น
+- เขียนทุกช่องเป็นภาษาไทย กระชับ
+- severity: high = ผิดข้อกำหนด อย. หรือข้อมูลผิด (เลขจดแจ้ง ปริมาณ ส่วนผสม คำเตือนขาด สรรพคุณทางยา); medium = สะกดผิด ไม่ตรงต้นฉบับจุดย่อย คำเกินจริง; low = ข้อเสนอแนะ
+- verdict: ready = ไม่มีปัญหา high หรือ medium; fix = มีจุดที่ต้องแก้; reject = ผิดร้ายแรงหลายจุด
+- box = กรอบโดยประมาณบนภาพที่ 1 หน่วยเปอร์เซ็นต์ [x, y, กว้าง, สูง] (0-100) ใส่ null ถ้าระบุไม่ได้
+
+รายการ checklist (ต้องตอบครบทุก id):
+${ITEMS.map(i=>`- ${i.id}: ${i.t} (${i.h})`).join("\n")}
+
+ตอบเป็น JSON อย่างเดียว รูปแบบ:
+{"verdict":"ready|fix|reject","summary":"สรุป 1-2 ประโยค","transcript":"ข้อความทั้งหมดบน artwork","checklist":[{"id":"name","status":"pass|fail|unclear|na","evidence":"ข้อความที่เห็นบนภาพ","comment":"เหตุผลสั้นๆ"}],"issues":[{"severity":"high|medium|low","category":"ข้อความบังคับ|สะกดผิด|ไม่ตรงต้นฉบับ|คำกล่าวอ้าง|งานพิมพ์|เทียบเวอร์ชันเดิม|อื่นๆ","where":"ตำแหน่งบนฉลาก","found":"...","expected":"...","fix":"วิธีแก้","box":[10,20,30,5]}]}`;
+}
+function normAI(r){
+  const ok=["ready","fix","reject"], sv=["high","medium","low"], cs=["pass","fail","unclear","na"];
+  const issues=(Array.isArray(r&&r.issues)?r.issues:[]).filter(i=>i&&typeof i==="object").map(i=>{
+    let box=Array.isArray(i.box)&&i.box.length===4&&i.box.every(n=>typeof n==="number"&&isFinite(n))?i.box.map(n=>Math.max(0,Math.min(100,n))):null;
+    if(box&&(box[2]<=0||box[3]<=0)) box=null;
+    return {severity:sv.includes(i.severity)?i.severity:"medium",category:String(i.category||"อื่นๆ"),where:String(i.where||""),found:String(i.found||""),expected:String(i.expected||""),fix:String(i.fix||""),box};
+  }).sort((a,b)=>sv.indexOf(a.severity)-sv.indexOf(b.severity)).slice(0,40);
+  const map={}; (Array.isArray(r&&r.checklist)?r.checklist:[]).forEach(c=>{ if(c&&ITEMS.some(i=>i.id===c.id)) map[c.id]={status:cs.includes(c.status)?c.status:"unclear",evidence:String(c.evidence||"").slice(0,300),comment:String(c.comment||"").slice(0,300)}; });
+  let verdict=ok.includes(r&&r.verdict)?r.verdict:(issues.some(i=>i.severity!=="low")?"fix":"ready");
+  return {verdict,summary:String(r&&r.summary||""),transcript:String(r&&r.transcript||""),issues,map,at:Date.now(),file:slots.B.name||""};
+}
+function applyAI(ai){
+  S.ai=ai; S.aiSel=-1;
+  ITEMS.forEach(it=>{ const a=ai.map[it.id]; if(!a) return; const cur=S.check[it.id];
+    if(!cur||!cur.s||cur.ai){ const s=a.status==="unclear"?"":a.status; S.check[it.id]=Object.assign({},cur||{},{s,ai:!!s}); } });
+  saveCheckDraft();
+  const tb=$("tB").value.trim();
+  if(ai.transcript&&(!tb||(!slots.B.sample&&tb===sampleText("B")))){ $("tB").value=ai.transcript; }
+  runText(); renderAI(); summary();
+}
+function renderAI(){
+  // canvas
+  const sh=$("aiSheet"), B=slots.B.src, A=slots.A.src;
+  $("aiFile").textContent=B?(slots.B.name||"ไฟล์ B"):"ยังไม่ได้เลือกไฟล์";
+  $("aiNmA").textContent=A?(slots.A.name||"ไฟล์ A"):"ยังไม่ได้เลือกไฟล์";
+  for(const k of ["A","B"]){ const sl=slots[k]; $("aiSx"+k).innerHTML=sl.src?(sl.sample?'<span class="chip c-dash">ไฟล์ตัวอย่าง</span>':(sl.sizeNote?`<span class="chip c-plain num">${esc(sl.sizeNote)}</span>`:"")):""; }
+  $("aiScopeMaster").innerHTML=masterText()?"<b>เทียบต้นฉบับ</b>มีข้อความต้นฉบับแล้ว AI จะเทียบทุกจุด":"<b>เทียบต้นฉบับ</b>ใส่ข้อความที่จดแจ้งไว้ในแท็บเทียบข้อความ เพื่อให้ AI เทียบด้วย";
+  if(!B){ sh.innerHTML='<div class="emptystage">เลือกไฟล์ artwork (JPG, PNG หรือ PDF) แล้วกด "ให้ AI ตรวจ artwork"</div>'; }
+  else{
+    aiCv.width=B.width; aiCv.height=B.height; const x=aiCv.getContext("2d"); x.drawImage(B,0,0);
+    const fresh=S.ai&&S.ai.file===slots.B.name;
+    if(fresh){ const lw=Math.max(2,B.width/450), r=Math.max(11,B.width/70);
+      S.ai.issues.forEach((it,i)=>{ if(!it.box) return; const col=i===S.aiSel?"#1748c4":SEV[it.severity][2];
+        const bx=it.box[0]/100*B.width, by=it.box[1]/100*B.height, bw=it.box[2]/100*B.width, bh=it.box[3]/100*B.height;
+        x.lineWidth=i===S.aiSel?lw*2:lw; x.strokeStyle=col; x.strokeRect(bx,by,bw,bh);
+        const cx=Math.max(r,bx), cy=Math.max(r,by); x.fillStyle=col; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.fill();
+        x.fillStyle="#ffffff"; x.font=`600 ${Math.round(r*1.1)}px "IBM Plex Mono",monospace`; x.textAlign="center"; x.textBaseline="middle"; x.fillText(String(i+1),cx,cy+1); }); }
+    if(A){ aiCvA.width=A.width; aiCvA.height=A.height; aiCvA.getContext("2d").drawImage(A,0,0); }
+    sh.innerHTML="";
+    sh.appendChild(A?frame(aiCvA,"A · ต้นฉบับ"):frame(Object.assign(document.createElement("div"),{className:"ph",innerHTML:"ยังไม่มีต้นฉบับ<br><span class='small'>เลือกไฟล์ A เพื่อวางเทียบ และให้ AI เทียบกับเวอร์ชันเดิม</span>"}),"A · ต้นฉบับ"));
+    sh.appendChild(frame(aiCv,"B · ไฟล์ใหม่"+(S.ai&&S.ai.file===slots.B.name&&S.ai.issues.some(i=>i.box)?" + จุดที่ AI พบ":"")));
+    const z=$("aiZoom").value; sh.style.width=z==="fit"?"100%":(B.width*+z*2+40)+"px";
+  }
+  // verdict
+  const V=$("aiVerdict"), I=$("aiIssues");
+  if(!S.ai){
+    $("aiWhen").textContent="";
+    V.innerHTML=`<p class="msg">กด "ให้ AI ตรวจ artwork" แล้ว AI จะอ่านฉลากทั้งชิ้น ตรวจข้อความบังคับ คำสะกด คำกล่าวอ้าง และเทียบกับต้นฉบับ จากนั้นกรอก Checklist ให้อัตโนมัติ ผู้ตรวจยังต้องดูและยืนยันผลเอง</p>`;
+    I.innerHTML=`<p class="railnote">ปัญหาที่พบจะเรียงตามความสำคัญตรงนี้</p>`; $("aiIssueSum").textContent=""; $("aiTxCard").hidden=true; aiAvail(); return;
+  }
+  const v=VERD[S.ai.verdict], hi=S.ai.issues.filter(i=>i.severity==="high").length, md=S.ai.issues.filter(i=>i.severity==="medium").length, lo=S.ai.issues.length-hi-md;
+  $("aiWhen").textContent=fmtDT(S.ai.at);
+  const unclear=Object.values(S.ai.map).filter(m=>m.status==="unclear").length;
+  V.innerHTML=`<div class="vbig"><span class="v ${v[1]}">${v[0]}</span><span>${esc(S.ai.summary)}</span></div>
+    <div class="stats"><span class="chip c-bad">สำคัญ <b>${hi}</b></span><span class="chip c-warn">ควรแก้ <b>${md}</b></span><span class="chip c-info">ข้อเสนอแนะ <b>${lo}</b></span>${unclear?`<span class="chip c-dash">อ่านไม่ชัด <b>${unclear}</b></span>`:""}</div>
+    ${S.ai.file!==slots.B.name?`<div class="warnline">ผลนี้มาจากไฟล์ "${esc(S.ai.file)}" ไฟล์ B เปลี่ยนแล้ว กดตรวจใหม่</div>`:""}
+    <div class="toolbar"><button class="btn" type="button" id="aiGoCheck">ดู Checklist ที่ AI กรอกให้</button></div>
+    <p class="msg">AI อาจอ่านผิดได้ โดยเฉพาะตัวอักษรเล็กมาก ผู้ตรวจต้องยืนยันทุกข้อก่อนอนุมัติพิมพ์</p>`;
+  $("aiGoCheck").onclick=()=>showTab("checklist");
+  $("aiIssueSum").textContent=S.ai.issues.length?S.ai.issues.length+" รายการ":"";
+  I.innerHTML=S.ai.issues.length?S.ai.issues.map((it,i)=>`<div class="iss sv-${it.severity}${i===S.aiSel?" sel":""}" data-i="${i}" tabindex="0">
+      <span class="n">${i+1}</span><div>
+      <div class="top2"><span class="chip ${SEV[it.severity][1]}">${SEV[it.severity][0]}</span><span class="chip c-plain">${esc(it.category)}</span>${it.box?"":'<span class="chip c-dash">ไม่ระบุตำแหน่ง</span>'}</div>
+      ${it.where?`<div class="where">${esc(it.where)}</div>`:""}
+      ${it.found||it.expected?`<div class="fe">${it.found?`<span class="small muted">พบ</span><del>${esc(it.found)}</del>`:""}${it.expected?`<span class="small muted">ควรเป็น</span><ins>${esc(it.expected)}</ins>`:""}</div>`:""}
+      ${it.fix?`<div class="fix">${esc(it.fix)}</div>`:""}</div></div>`).join("")
+    :`<p class="railnote">AI ไม่พบปัญหาบน artwork นี้ ผู้ตรวจยังควรดู Checklist ให้ครบก่อนอนุมัติ</p>`;
+  $("aiTxCard").hidden=!S.ai.transcript; $("aiTx").textContent=S.ai.transcript;
+  aiAvail();
+}
+$("aiIssues").addEventListener("click",e=>{const r=e.target.closest(".iss"); if(r) aiFocus(+r.dataset.i);});
+$("aiIssues").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.classList.contains("iss")) aiFocus(+e.target.dataset.i);});
+function aiFocus(i){
+  S.aiSel=i; document.querySelectorAll(".iss").forEach(x=>x.classList.toggle("sel",+x.dataset.i===i)); renderAI();
+  const it=S.ai.issues[i]; if(!it||!it.box) return;
+  const st=$("aiStage"), sh=$("aiSheet");
+  st.scrollIntoView({behavior:"smooth",block:"nearest"});
+  requestAnimationFrame(()=>{ const fr=aiCv.parentElement; st.scrollTo({top:Math.max(0,fr.offsetTop+it.box[1]/100*fr.offsetHeight-st.clientHeight/3),left:Math.max(0,fr.offsetLeft+it.box[0]/100*fr.offsetWidth-st.clientWidth/3),behavior:"smooth"}); });
+}
+$("aiZoom").addEventListener("change",renderAI);
+$("aiUseTx").onclick=()=>{ if(S.ai&&S.ai.transcript){ $("tB").value=S.ai.transcript; runText(); showTab("text"); } };
+$("aiStop").onclick=()=>{ if(aiCtl) aiCtl.abort(); };
+const AIERR={};
+$("aiRun").onclick=async()=>{
+  if(!sampleFn||!imgCap||!slots.B.src||aiCtl) return;
+  const st=$("aiStatus"), run=$("aiRun"); run.disabled=true; $("aiStop").hidden=false;
+  aiCtl=new AbortController(); const t0=Date.now(); let chars=0;
+  const tick=()=>{ const sec=Math.round((Date.now()-t0)/1000); st.className="aistatus"; st.innerHTML=`<span class="spin"></span>${chars?`AI กำลังเขียนผลตรวจ… ${chars.toLocaleString()} ตัวอักษร`:`AI กำลังอ่านและตรวจ artwork… ${sec} วินาที`}`; };
+  tick(); aiTimer=setInterval(tick,1000);
+  try{
+    const {imgs,desc}=await aiImages();
+    const res=await sampleFn.json(aiPrompt(desc),{images:imgs,modelTier:$("aiDepth").value,signal:aiCtl.signal,cache:false,onText:({text})=>{chars=text.length;}});
+    clearInterval(aiTimer); aiCtl=null; $("aiStop").hidden=true;
+    applyAI(normAI(res));
+    st.className="aistatus"; st.textContent=`ตรวจเสร็จใน ${Math.round((Date.now()-t0)/1000)} วินาที`;
+  }catch(e){
+    clearInterval(aiTimer); aiCtl=null; $("aiStop").hidden=true;
+    if(e&&(e.code==="cancelled"||e.name==="AbortError")){ aiAvail("หยุดการตรวจแล้ว"); }
+    else if(e&&["not_granted","sampling_disabled","images_unavailable"].includes(e.code)){ if(e.code==="images_unavailable") imgCap=null; else sampleFn=null; aiAvail(AIERR[e.code]); }
+    else aiAvail((e&&AIERR[e.code])||(e&&e.message)||"ตรวจไม่สำเร็จ ลองอีกครั้ง");
+  }
+  run.disabled=!slots.B.src||!sampleFn||!imgCap;
+};
+
+/* ================= sample artwork (shown until real files are chosen) ================= */
+const SAMPLE={
+ A:{net:"30 ml",netTh:"ปริมาณสุทธิ 30 มล.",tag:"ผิวดูกระจ่างใส ชุ่มชื้น",ingr:"Water, Niacinamide, Glycerin, Butylene Glycol, Sodium Hyaluronate, Panthenol, Phenoxyethanol, Ethylhexylglycerin",
+    warn:"คำเตือน: ใช้ภายนอกเท่านั้น หากมีอาการระคายเคืองให้หยุดใช้และปรึกษาแพทย์ หลีกเลี่ยงการสัมผัสดวงตา",no:"73-1-6900012345",badge:"#f2c14e"},
+ B:{net:"35 ml",netTh:"ปริมาณสุทธิ 35 มล.",tag:"ผิวกระจ่างใส เห็นผลทันที",ingr:"Water, Glycerin, Niacinamide, Butylene Glycol, Sodium Hyaluronate, Panthenol, Phenoxyethanol, Ethylhexylglycerin",
+    warn:"คำเตือน: ใช้ภายนอกเท่านั้น หากมีอาการระคายเคืองให้หยุดใช้และปรึกษาแพทย์",no:"73-1-6900012354",badge:"#f2c14e"}
+};
+const HOWTO="วิธีใช้: หลังล้างหน้า หยดเซรั่ม 2-3 หยดลงบนฝ่ามือ แล้วลูบไล้ให้ทั่วใบหน้าและลำคอ เช้าและเย็น";
+const MAKER="ผลิตโดย: บริษัท ตัวอย่าง คอสเมติก จำกัด 99 หมู่ 1 ต.ตัวอย่าง อ.เมือง จ.นครปฐม";
+const seg=typeof Intl!=="undefined"&&Intl.Segmenter?new Intl.Segmenter("th",{granularity:"word"}):null;
+function wrap(x,text,maxW){
+  const parts=seg?[...seg.segment(text)].map(s=>s.segment):text.split(/(\s+)/);
+  const lines=[]; let cur="";
+  for(const p of parts){ if(x.measureText(cur+p).width>maxW&&cur.trim()){lines.push(cur.trim());cur=p.trimStart();} else cur+=p; }
+  if(cur.trim()) lines.push(cur.trim()); return lines;
+}
+function drawSample(v){
+  const d=SAMPLE[v], c=document.createElement("canvas"); c.width=1400;c.height=860;
+  const x=c.getContext("2d");
+  x.fillStyle="#ffffff"; x.fillRect(0,0,1400,860);
+  x.fillStyle="#0e5866"; x.fillRect(40,40,500,780);
+  x.fillStyle="#ffffff"; x.font='600 64px Prompt, sans-serif'; x.textBaseline="alphabetic";
+  x.fillText("LUMI SKIN",90,160);
+  x.font='500 30px Prompt, sans-serif'; x.fillText("NIACINAMIDE 10%",92,230); x.fillText("BRIGHT SERUM",92,272);
+  x.font='500 34px "IBM Plex Sans Thai", sans-serif'; x.fillText("เซรั่มบำรุงผิวหน้า",92,350);
+  x.font='400 26px "IBM Plex Sans Thai", sans-serif'; x.fillStyle="#cfe7ea"; x.fillText(d.tag,92,400);
+  x.fillStyle=d.badge; x.beginPath(); x.arc(290,640,110,0,Math.PI*2); x.fill();
+  x.fillStyle="#0e3a42"; x.textAlign="center"; x.font='600 54px Prompt, sans-serif'; x.fillText(d.net,290,652);
+  x.font='400 20px "IBM Plex Sans Thai", sans-serif'; x.fillText("ปริมาณสุทธิ",290,600); x.textAlign="left";
+  // right panel
+  let y=96; const L=590, MW=740; x.fillStyle="#14232b";
+  const block=(head,body,size)=>{ x.font='600 26px "IBM Plex Sans Thai", sans-serif'; if(head){x.fillText(head,L,y); y+=36;}
+    x.font=`400 ${size||22}px "IBM Plex Sans Thai", sans-serif`; wrap(x,body,MW).forEach(l=>{x.fillText(l,L,y); y+=(size||22)*1.45;}); y+=14; };
+  block("ส่วนประกอบ / Ingredients",d.ingr);
+  block("",HOWTO); block("",d.warn); block("",MAKER); block("",d.netTh);
+  x.font='600 24px "IBM Plex Mono", monospace'; x.fillText("เลขที่ใบรับจดแจ้ง "+d.no,L,y+6);
+  x.setLineDash([8,6]); x.strokeStyle="#9aa6b2"; x.lineWidth=2; x.strokeRect(L,700,380,110); x.setLineDash([]);
+  x.font='400 19px "IBM Plex Sans Thai", sans-serif'; x.fillStyle="#6b7782";
+  x.fillText("ครั้งที่ผลิต / LOT:",L+16,738); x.fillText("วันที่ผลิต / MFG:",L+16,766); x.fillText("วันหมดอายุ / EXP:",L+16,794);
+  // barcode
+  const bx=1010, by=704; x.fillStyle="#111111"; let px=bx; const pat="1011000101101110010110100111001011011000110101101001110101100010110111";
+  for(const ch of pat){ if(ch==="1") x.fillRect(px,by,3,84); px+=3.9; }
+  x.font='400 20px "IBM Plex Mono", monospace'; x.fillText("8 851234 567893",bx+14,by+108);
+  x.strokeStyle="#c3ccd6"; x.lineWidth=2; x.strokeRect(20,20,1360,820);
+  return c;
+}
+function sampleText(v){ const d=SAMPLE[v];
+  return ["Lumi Skin Niacinamide 10% Bright Serum","เซรั่มบำรุงผิวหน้า",d.tag,d.netTh,"ส่วนประกอบ: "+d.ingr,
+    v==="B"?HOWTO.replace("ลำคอ","ลําคอ"):HOWTO, d.warn, MAKER, "เลขที่ใบรับจดแจ้ง "+d.no,"ครั้งที่ผลิต / วันที่ผลิต / วันหมดอายุ: ดูที่ฉลาก"].join("\n"); }
+
+async function boot(){
+  const h=(location.hash||"").slice(1); showTab(TABS.includes(h)?h:"ai");
+  try{ await Promise.race([Promise.all([document.fonts.load('600 64px Prompt'),document.fonts.load('500 34px "IBM Plex Sans Thai"'),document.fonts.load('600 24px "IBM Plex Mono"')]),new Promise(r=>setTimeout(r,2500))]); }catch(_){}
+  for(const k of ["A","B"]) paintSlot(k);
+  safe(build,"เทียบภาพ"); safe(runText,"เทียบข้อความ"); safe(syncPdfTextButtons,"PDF"); safe(renderAI,"AI");
+}
+function safe(fn,label){ try{ const r=fn(); if(r&&r.catch) r.catch(e=>window.__awShow&&window.__awShow(label+": "+((e&&(e.message||e.code))||e))); }catch(e){ window.__awShow&&window.__awShow(label+": "+((e&&e.message)||e)); } }
+
+safe(summary,"สรุป"); safe(runCheck,"Checklist"); safe(initStore,"ประวัติ"); safe(initAI,"AI"); safe(boot,"เริ่มโปรแกรม");
+})();
+</script>
+
+</body></html>
