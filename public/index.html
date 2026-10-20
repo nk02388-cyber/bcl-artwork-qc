@@ -1094,7 +1094,7 @@ async function initAI(){
     apiBase=url.origin; apiToken=$("apiAccess").value;
     const response=await fetch(apiBase+"/api/audit",{signal:AbortSignal.timeout(10000)});
     const config=await response.json();
-    if(!response.ok||!config.configured) throw Error("เซิร์ฟเวอร์ยังไม่ได้ตั้ง OPENAI_API_KEY และ APP_ACCESS_TOKEN");
+    if(!response.ok||!config.configured) throw Error("เซิร์ฟเวอร์ยังตั้งค่า AI ไม่ครบ กรุณาตรวจ Environment Variables ใน Vercel");
     $("apiConnection").textContent="เซิร์ฟเวอร์พร้อม · ใส่รหัสเข้าใช้ก่อนกดตรวจ · "+config.model;
     try { localStorage.setItem("bcl-api-url",apiBase); } catch(_) {}
     imgCap={maxCount:6}; sampleFn={json:openaiAudit}; aiAvail();
