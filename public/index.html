@@ -1087,6 +1087,7 @@ try { $("apiUrl").value=localStorage.getItem("bcl-api-url")||(!location.hostname
 async function initAI(){
   sampleFn=null; imgCap=null; aiAvail("กำลังเชื่อมต่อเซิร์ฟเวอร์ OpenAI…");
   try {
+    if(!$("apiUrl").value.trim()) throw Error("ยังไม่ได้ตั้งเซิร์ฟเวอร์ AI · กรอก URL เซิร์ฟเวอร์ แล้วกดเชื่อมต่อ");
     const url=new URL($("apiUrl").value.trim());
     if(url.protocol!=="https:" && !(url.protocol==="http:"&&["localhost","127.0.0.1"].includes(url.hostname))) throw Error("กรอก URL เซิร์ฟเวอร์ HTTPS");
     if(url.username||url.password||url.search||url.hash||url.pathname!=="/") throw Error("ใช้ URL หลักของเซิร์ฟเวอร์ เช่น https://your-project.vercel.app");
